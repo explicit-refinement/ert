@@ -1,5 +1,6 @@
 import ERT.Utils.Wk
 import ERT.Untyped.Basic
+import ERT.Typed.Basic
 
 /-!
 # Explicit Refinement Types
