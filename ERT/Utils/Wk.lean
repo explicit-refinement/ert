@@ -1,7 +1,6 @@
 import Mathlib.Order.Monotone.Basic
 import Mathlib.Init.Function
 import Mathlib.Logic.Function.Basic
-import Aesop
 
 /-!
 # Weakenings
@@ -15,6 +14,11 @@ def stepWk (ρ: Nat -> Nat): Nat -> Nat
 def liftWk (ρ: Nat -> Nat): Nat -> Nat
   | 0 => 0
   | n + 1 => (ρ n) + 1
+
+def liftWk_id: liftWk id = id := by funext n; cases n <;> simp [liftWk]
+
+def liftWk_comp (ρ σ: Nat -> Nat): liftWk (ρ ∘ σ) = liftWk ρ ∘ liftWk σ := by
+ funext n; cases n <;> simp [liftWk]
 
 /-
 Equality functions up-to-n
@@ -37,8 +41,15 @@ theorem EqToN.succ_app {α} (n) (ρ τ: Nat -> α)
   λ⟨Hn, H⟩ m Hm => match Hm with | Nat.le.refl => Hn | Nat.le.step Hm => H m Hm
 ⟩
 
+theorem EqToN.le_sub {α} {n k} (Hnk: n ≤ k): Subrelation (@EqToN α k) (@EqToN α n)
+  := λH m Hm => H m (Nat.le_trans Hm Hnk)
+
+theorem EqToN.lt_sub {α} {n k} (Hnk: n < k): Subrelation (@EqToN α k) (@EqToN α n)
+  := le_sub (Nat.le_of_lt Hnk)
 theorem EqToN.succ_sub {α} (n): Subrelation (@EqToN α n.succ) (@EqToN α n)
-  := λH m Hm => H m (Nat.le.step Hm)
+  := le_sub (Nat.le_succ n)
+theorem EqToN.pred_sub {α} (n): Subrelation (@EqToN α n) (@EqToN α n.pred)
+  := le_sub (Nat.pred_le n)
 
 theorem EqToN.refl {α} (n) (ρ: ℕ -> α): EqToN n ρ ρ := λ_ _ => rfl
 theorem EqToN.symm {α} {n} {ρ τ: ℕ -> α} (H: EqToN n ρ τ): EqToN n τ ρ
@@ -51,20 +62,33 @@ theorem EqToN.equivalence {α} (n): Equivalence (@EqToN α n) where
   symm := EqToN.symm
   trans := EqToN.trans
 
+theorem EqToN.max_left {α n m}: Subrelation (@EqToN α (n.max m)) (@EqToN α n)
+  := le_sub (Nat.le_max_left _ _)
+theorem EqToN.max_right {α} {n m: ℕ}: Subrelation (@EqToN α (n.max m)) (@EqToN α m)
+  := le_sub (Nat.le_max_right _ _)
+
 def comp_congr_eqToN {α β n ρ τ} (f: α -> β): EqToN n ρ τ -> EqToN n (f ∘ ρ) (f ∘ τ)
   := λH m Hm => congrArg f (H m Hm)
 
 def stepWk_congr_eqToN {n ρ τ}: EqToN n ρ τ -> EqToN n (stepWk ρ) (stepWk τ)
   := comp_congr_eqToN Nat.succ
 
-def liftWk_congr_eqToN {n ρ τ}: EqToN n ρ τ -> EqToN n.succ (liftWk ρ) (liftWk τ)
+def liftWk_eqToN_succ {n ρ τ}: EqToN n ρ τ -> EqToN n.succ (liftWk ρ) (liftWk τ)
   | _, 0, _ => rfl
-  | H, n + 1, Hm => congrArg Nat.succ (H n (Nat.lt_succ.mp Hm))
+  | H, m + 1, Hm => congrArg Nat.succ (H m (Nat.lt_succ.mp Hm))
 
-def liftWk_iter_congr_eqToN {n ρ τ}
+def liftWk_congr_eqToN {n ρ τ}: EqToN n ρ τ -> EqToN n (liftWk ρ) (liftWk τ)
+  | H => EqToN.succ_sub n (liftWk_eqToN_succ H)
+
+def liftWk_eqToN_pred {n ρ τ}: EqToN n.pred ρ τ -> EqToN n (liftWk ρ) (liftWk τ)
+  := match n with
+  | 0 => liftWk_congr_eqToN
+  | _ + 1 => liftWk_eqToN_succ
+
+def liftWk_iter_eqToN_add {n ρ τ}
   : (m: Nat) -> EqToN n ρ τ -> EqToN (n + m) (liftWk^[m] ρ) (liftWk^[m] τ)
   | 0, H => H
-  | m + 1, H => Function.iterate_succ' _ _ ▸ liftWk_congr_eqToN (liftWk_iter_congr_eqToN m H)
+  | m + 1, H => Function.iterate_succ' _ _ ▸ liftWk_eqToN_succ (liftWk_iter_eqToN_add m H)
 
 /-
 Nicer/more efficient definitions for iterated stepping

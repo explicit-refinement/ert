@@ -1,4 +1,6 @@
 import ERT.Utils.Wk
+import Mathlib.Order.MinMax
+import Mathlib.Tactic.SolveByElim
 
 inductive World
   | computation
@@ -71,7 +73,7 @@ inductive Term (α: Type)
   | extra (a: α)
 
 def Term.fv {α}: Term α -> ℕ
-  | var n => n
+  | var n => n.succ
   | pi _ A B | sigma _ A B => A.fv.max B.fv.pred
   | coprod A B => A.fv.max B.fv
   | eq a b => a.fv.max b.fv
@@ -100,3 +102,33 @@ def Term.wk {α} (ρ: ℕ -> ℕ): Term α -> Term α
   | case e l r => case (e.wk ρ) (l.wk (liftWk ρ)) (r.wk (liftWk ρ))
   | natrec n z s => natrec (n.wk ρ) (z.wk ρ) (s.wk (liftWk (liftWk ρ)))
   | t => t
+
+theorem Term.wk_id {α} (t: Term α): t.wk id = t := by
+  induction t with
+  | var _ => rfl
+  | _ => simp only [Term.wk, liftWk_id, *]
+
+theorem Term.wk_comp {α} (ρ σ: ℕ -> ℕ) (t: Term α):
+  t.wk (ρ ∘ σ) = (t.wk σ).wk ρ := by
+  induction t generalizing ρ σ with
+  | var _ => rfl
+  | _ => simp only [Term.wk, liftWk_comp, *]
+
+theorem Term.wk_fv {α ρ σ} (t: Term α) (H: EqToN t.fv ρ σ): t.wk ρ = t.wk σ := by
+  induction t generalizing ρ σ with
+  | var n => exact congrArg _ (H n (Nat.le_refl n.succ))
+  | _ =>
+    simp only [Term.wk] <;>
+    simp only [Term.fv] at H
+    repeat apply congr
+    all_goals first
+      | rfl
+      | {
+        apply_assumption
+        repeat apply liftWk_eqToN_pred
+        apply H.le_sub
+        simp [le_max_iff, le_refl, true_or]
+      }
+
+theorem Term.wk_closed {α ρ} (t: Term α) (H: t.fv = 0): t.wk ρ = t :=
+  (t.wk_fv (H.symm ▸ (EqToN.zero_app _ id))).trans t.wk_id
