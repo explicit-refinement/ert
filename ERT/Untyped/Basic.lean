@@ -1,6 +1,7 @@
 import ERT.Utils.Wk
 import Mathlib.Order.MinMax
 import Mathlib.Tactic.SolveByElim
+import Aesop
 
 inductive World
   | computation
@@ -108,6 +109,8 @@ theorem Term.wk_id {α} (t: Term α): t.wk id = t := by
   | var _ => rfl
   | _ => simp only [Term.wk, liftWk_id, *]
 
+theorem Term.wk_id' {α} (t: Term α): t.wk (λx => x) = t := t.wk_id
+
 theorem Term.wk_comp {α} (ρ σ: ℕ -> ℕ) (t: Term α):
   t.wk (ρ ∘ σ) = (t.wk σ).wk ρ := by
   induction t generalizing ρ σ with
@@ -132,3 +135,137 @@ theorem Term.wk_fv {α ρ σ} (t: Term α) (H: EqToN t.fv ρ σ): t.wk ρ = t.wk
 
 theorem Term.wk_closed {α ρ} (t: Term α) (H: t.fv = 0): t.wk ρ = t :=
   (t.wk_fv (H.symm ▸ (EqToN.zero_app _ id))).trans t.wk_id
+
+def Subst (α: Type) := ℕ -> Term α
+
+def Subst.id (α: Type): Subst α := Term.var
+
+def Subst.lift {α} (σ: Subst α): Subst α
+  | 0 => Term.var 0
+  | n+1 => (σ n).wk Nat.succ
+
+def Subst.liftn {α} (n: ℕ) (σ: Subst α): Subst α
+  | m => if m < n then Term.var m else (σ (m - n)).wk (λv => v + n)
+
+def Subst.liftn_zero {α} (σ: Subst α): σ.liftn 0 = σ := by
+  funext n
+  simp only [liftn]
+  split
+  . rename_i H; cases H
+  . exact (σ n).wk_id
+def Subst.liftn_succ {α} (n) (σ: Subst α): σ.liftn n.succ = (σ.liftn n).lift := by
+  induction n with
+  | zero =>
+    funext m
+    simp only [lift]
+    split
+    . rfl
+    . simp only [liftn]
+      split
+      . rename_i H; simp_arith at H
+      . simp_arith [Term.wk_id']
+  | succ n I =>
+    funext m
+    rw [I]
+    simp only [lift]
+    split
+    . rfl
+    . simp only [liftn]
+      split
+      . split
+        . rfl
+        . split
+          . rfl
+          . rename_i H C; exact (C (Nat.lt_of_succ_lt_succ (Nat.lt_of_succ_lt_succ H))).elim
+      . split
+        . rename_i H; simp_arith at H
+        . split
+          . rename_i C H; exact (C (Nat.succ_lt_succ (Nat.succ_lt_succ H))).elim
+          . simp only [<-Term.wk_comp]
+            apply congr
+            apply congrArg
+            funext v
+            simp_arith
+            simp_arith
+
+def Subst.liftn_eq_iterate_lift {α} (n: ℕ) (σ: Subst α): σ.liftn n = (Subst.lift^[n] σ) := by
+  induction n with
+  | zero => exact σ.liftn_zero
+  | succ n I => simp only [Function.iterate_succ_apply', Subst.liftn_succ, *]
+
+def Subst.lift_zero {α} (σ: Subst α): σ.lift 0 = Term.var 0 := rfl
+def Subst.lift_succ {α} (σ: Subst α) (n): (σ.lift n.succ) = (σ n).wk Nat.succ := rfl
+
+def Subst.lift_id (α): (id α).lift = id α := by funext n; cases n <;> rfl
+
+def Term.subst {α} (σ: Subst α): Term α -> Term α
+  | var n => σ n
+  | pi k A B => pi k (A.subst σ) (B.subst (σ.lift))
+  | sigma k A B => sigma k (A.subst σ) (B.subst (σ.lift))
+  | coprod A B => coprod (A.subst σ) (B.subst σ)
+  | eq a b => eq (a.subst σ) (b.subst σ)
+  | let1 a e => let1 (a.subst σ) (e.subst (σ.lift))
+  | lam k A t => lam k (A.subst σ) (t.subst (σ.lift))
+  | app s t => app (s.subst σ) (t.subst σ)
+  | pair k s t => pair k (s.subst σ) (t.subst σ)
+  | let2 a e => let2 (a.subst σ) (e.subst (σ.lift.lift))
+  | inj b t => inj b (t.subst σ)
+  | case e l r => case (e.subst σ) (l.subst (σ.lift)) (r.subst (σ.lift))
+  | natrec n z s => natrec (n.subst σ) (z.subst σ) (s.subst (σ.lift.lift))
+  | t => t
+
+def Term.subst_id {α} (t: Term α): t.subst (Subst.id α) = t := by
+  induction t with
+  | var _ => rfl
+  | _ => simp only [Term.subst, Subst.lift_id, *]
+
+def Subst.fromWk (α) (ρ: ℕ -> ℕ): Subst α := Term.var ∘ ρ
+
+theorem Subst.fromWk_lift (α ρ): (fromWk α ρ).lift = fromWk α (liftWk ρ) := by
+  funext n; cases n <;> rfl
+
+theorem Term.subst_wk {α} (ρ: ℕ -> ℕ) (t: Term α): t.subst (Subst.fromWk α ρ) = t.wk ρ := by
+  induction t generalizing ρ with
+  | var n => rfl
+  | _ => simp only [Term.subst, Term.wk, Subst.fromWk_lift, *]
+
+theorem Term.subst_liftWkn {α} (t: Term α) (σ: Subst α) (n)
+  : (t.wk (liftWk^[n] Nat.succ)).subst (Subst.lift^[n + 1] σ)
+  = (t.subst (Subst.lift^[n] σ)).wk (liftWk^[n] Nat.succ) := by
+  induction t generalizing σ n with
+  | var v =>
+    simp only [
+      <-liftnWk_eq_iterate_liftWk,
+      <-Subst.liftn_eq_iterate_lift,
+      wk, subst, liftnWk, Subst.liftn
+    ]
+    split
+    . split
+      . simp [wk, liftnWk, *]
+      . rename_i H C; exact (C (Nat.le_step H)).elim
+    . rename_i C
+      simp_arith only [ite_false, <-wk_comp]
+      apply congr
+      . apply congrArg
+        funext v
+        simp_arith [Function.comp_apply, liftnWk]
+      . simp [Nat.succ_add, Nat.succ_sub_succ, Nat.add_sub_assoc]
+  | _ => simp only [Term.subst, Term.wk, <-Function.iterate_succ_apply', *]
+
+theorem Term.subst_lift {α} (t: Term α) (σ: Subst α)
+  : (t.wk Nat.succ).subst (σ.lift) = (t.subst σ).wk Nat.succ := t.subst_liftWkn σ 0
+
+def Subst.comp {α} (σ τ: Subst α): Subst α
+  | n => (τ n).subst σ
+
+theorem Subst.lift_comp {α} (σ τ: Subst α): (σ.comp τ).lift = σ.lift.comp τ.lift := by
+  funext n
+  cases n with
+  | zero => rfl
+  | succ n => simp [lift, comp, Term.subst_lift]
+
+theorem Term.subst_comp {α} (σ τ: Subst α) (t: Term α)
+  : t.subst (σ.comp τ) = (t.subst τ).subst σ := by
+  induction t generalizing σ τ with
+  | var n => rfl
+  | _ => simp only [Term.subst, Subst.lift_comp, *]
