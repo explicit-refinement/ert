@@ -269,3 +269,40 @@ theorem Term.subst_comp {α} (σ τ: Subst α) (t: Term α)
   induction t generalizing σ τ with
   | var n => rfl
   | _ => simp only [Term.subst, Subst.lift_comp, *]
+
+theorem Subst.lift_eqToN_succ {α} {σ τ: Subst α} {n} (H: EqToN n σ τ): EqToN n.succ σ.lift τ.lift
+  | 0, _ => rfl
+  | m + 1, Hm => congrArg _ (H m (Nat.lt_of_succ_lt_succ Hm))
+
+theorem Subst.lift_congr_eqToN {α} {σ τ: Subst α} {n} (H: EqToN n σ τ)
+  : EqToN n σ.lift τ.lift := (lift_eqToN_succ H).succ_sub
+
+theorem Subst.lift_eqToN_pred {α} {σ τ: Subst α} {n}: EqToN n.pred σ τ -> EqToN n σ.lift τ.lift :=
+  match n with | 0 => lift_congr_eqToN | _ + 1 => lift_eqToN_succ
+
+theorem Term.subst_fv {α σ τ} (t: Term α) (H: EqToN t.fv σ τ): t.subst σ = t.subst τ := by
+  induction t generalizing σ τ with
+  | var n =>  exact H n (Nat.le_refl n.succ)
+  | _ =>
+    simp only [Term.subst] <;>
+    simp only [Term.fv] at H
+    repeat apply congr
+    all_goals first
+      | rfl
+      | {
+        apply_assumption
+        repeat apply Subst.lift_eqToN_pred
+        apply H.le_sub
+        simp [le_max_iff, le_refl, true_or]
+      }
+
+theorem Term.subst_closed {α σ} (t: Term α) (H: t.fv = 0): t.subst σ = t :=
+  (t.subst_fv (H.symm ▸ (EqToN.zero_app _ _))).trans t.subst_id
+
+def Term.subst0 {α} (t: Term α): Subst α
+  | 0 => t
+  | n + 1 => var n
+
+def Term.alpha0 {α} (t: Term α): Subst α
+  | 0 => t
+  | n => var n
