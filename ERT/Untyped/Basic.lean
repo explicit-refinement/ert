@@ -1,11 +1,33 @@
 import ERT.Utils.Wk
 import Mathlib.Order.MinMax
-import Mathlib.Tactic.SolveByElim
+import Std.Tactic.SolveByElim
 import Aesop
 
 inductive World
   | comp
   | ghost
+
+inductive World.le: World -> World -> Prop
+  | refl (w): le w w
+  | comp_ghost: le ghost comp
+
+theorem World.le.ghost (w): ghost.le w := by
+  cases w <;> constructor
+
+theorem World.le.trans {a b c}: World.le a b -> World.le b c -> World.le a c := by
+  intro h1 h2;
+  cases h1 <;> cases h2 <;> constructor
+
+theorem World.le.antisymm {a b}: World.le a b -> World.le b a -> a = b := by
+  intro h1 h2;
+  cases h1 <;> cases h2
+  rfl
+
+instance World.instPartialOrder: PartialOrder World where
+  le := le
+  le_refl := le.refl
+  le_trans _ _ _ := le.trans
+  le_antisymm _ _ := le.antisymm
 
 inductive Kind
   | type (w: World)
@@ -15,17 +37,13 @@ inductive Kind.le: Kind -> Kind -> Prop
   | ghost: le (type World.comp) (type World.ghost)
   | refl (k): le k k
 
-inductive Kind.solid: Kind -> Prop
-  | type: solid (type World.comp)
-  | prop: solid prop
-
 inductive Term (α: Type)
   -- Variables
   | var (n: Nat)
 
   -- Type/proposition formers
-  | pi (k: Kind) (A B: Term α)
-  | sigma (k: Kind) (A B: Term α)
+  | pi (w: World) (A B: Term α)
+  | sigma (w: World) (A B: Term α)
   | coprod (A B: Term α)
 
   -- Base types
@@ -40,9 +58,9 @@ inductive Term (α: Type)
 
   -- Term/proof formers
   -- | let1 (a e: Term α)
-  | lam (k: Kind) (A t: Term α)
+  | lam (w: World) (A t: Term α)
   | app (s t: Term α)
-  | pair (k: Kind) (s t: Term α)
+  | pair (w: World) (s t: Term α)
   | let2 (a e: Term α)
   | inj (b: Fin 2) (t: Term α)
   | case (e l r: Term α)
@@ -77,9 +95,6 @@ inductive Term (α: Type)
   | eta
   | irir
   | prir
-
-  -- Custom constants/axioms
-  | extra (a: α)
 
 def Term.fv {α}: Term α -> ℕ
   | var n => n.succ
