@@ -140,6 +140,17 @@ theorem Term.wk_comp {α} (ρ σ: ℕ -> ℕ) (t: Term α):
   | var _ => rfl
   | _ => simp only [Term.wk, liftWk_comp, *]
 
+theorem Term.wk_lift_succ {α} (ρ: ℕ -> ℕ) (t: Term α):
+  (t.wk Nat.succ).wk (liftWk ρ) = (t.wk ρ).wk Nat.succ := by
+  rw [<-Term.wk_comp]
+  rw [liftWk_comp_succ]
+  rw [Term.wk_comp]
+
+theorem Term.wk_step_succ {α} (ρ: ℕ -> ℕ) (t: Term α):
+  (t.wk ρ).wk Nat.succ = t.wk (stepWk ρ) := by
+  rw [<-Term.wk_comp]
+  rfl
+
 theorem Term.wk_fv {α ρ σ} (t: Term α) (H: EqToN t.fv ρ σ): t.wk ρ = t.wk σ := by
   induction t generalizing ρ σ with
   | var n => exact congrArg _ (H n (Nat.le_refl n.succ))
@@ -329,3 +340,62 @@ def Term.subst0 {α} (t: Term α): Subst α
 def Term.alpha0 {α} (t: Term α): Subst α
   | 0 => t
   | n => var n
+
+theorem Term.subst0_liftn_liftWk_liftn {α} (t: Term α) (ρ: ℕ -> ℕ) (s: Term α) (n)
+  : (t.wk (liftWk^[n + 1] ρ)).subst (Subst.lift^[n] (s.wk ρ).subst0)
+  = (t.subst (Subst.lift^[n] s.subst0)).wk (liftWk^[n] ρ) := by
+  induction t generalizing ρ s n with
+  | var v =>
+    simp only [
+      subst, wk,
+      <-Subst.liftn_eq_iterate_lift,
+      <-liftnWk_eq_iterate_liftWk,
+      Subst.liftn, liftnWk
+    ]
+    split
+    . split
+      . simp_arith [wk, liftnWk, *]
+      . rename_i H C
+        have H: v = n := by
+          cases H
+          rfl
+          contradiction
+        cases H
+        simp only [subst0, Nat.sub_self, ←wk_comp]
+        congr
+        funext _
+        simp [liftnWk]
+        split <;> simp_arith at *
+    . split
+      . simp_arith at *
+      . split
+        . rename_i C _ H
+          exact (C (Nat.lt_succ_of_lt H)).elim
+        . simp only [subst0]
+          split
+          . rename_i H _ _ He
+            have He := Nat.le_of_sub_eq_zero He
+            have He' := not_lt_of_le He
+            cases Nat.eq_or_lt_of_not_lt H with
+            | inl H => cases H
+            | inr H => contradiction
+          . rename_i Hv H _ _ _ He
+            cases Nat.eq_or_lt_of_not_lt H with
+            | inl H => cases H
+            | inr H =>
+              split
+              . rename_i He
+                exact (Hv (Nat.lt_succ_of_le (Nat.le_of_sub_eq_zero He))).elim
+              . simp_arith only [wk, liftnWk, Nat.add_sub_cancel, var.injEq, ite_false]
+                rw [Nat.add_sub_assoc (Nat.le_succ _)] at He
+                rw [Nat.succ_sub] at He
+                rw [Nat.sub_self] at He
+                cases He
+                rw [Nat.sub_succ, Nat.add]
+                simp_arith [*]
+                exact le_refl _
+  | _ => simp only [subst, wk, <-Function.iterate_succ_apply', *]
+
+theorem Term.subst0_liftWk {α} (t: Term α) (ρ: ℕ -> ℕ) (s: Term α)
+  : (t.wk (liftWk ρ)).subst (s.wk ρ).subst0 = (t.subst s.subst0).wk ρ :=
+  subst0_liftn_liftWk_liftn t ρ s 0

@@ -20,6 +20,9 @@ def liftWk_id: liftWk id = id := by funext n; cases n <;> simp [liftWk]
 def liftWk_comp (ρ σ: Nat -> Nat): liftWk (ρ ∘ σ) = liftWk ρ ∘ liftWk σ := by
  funext n; cases n <;> simp [liftWk]
 
+def liftWk_comp_succ (ρ: Nat -> Nat): liftWk ρ ∘ Nat.succ = Nat.succ ∘ ρ := by
+  funext n; cases n <;> rfl
+
 /-
 Equality functions up-to-n
 -/

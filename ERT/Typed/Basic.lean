@@ -20,11 +20,11 @@ def Term.IsSort.toGhost {α K w}: @Term.IsSort α K w -> Term.IsSort K ghost
   | type _ => type ghost
 
 inductive HasVar {α}: List (Var α) -> ℕ -> Term α -> World -> Type where
-  | head: ∀ {xs x w}, w.le x.world -> HasVar (x :: xs) 0 x.ty w
-  | tail: ∀ {xs x y n w}, HasVar xs n x w -> HasVar (y :: xs) (n + 1) x w
+  | head: ∀ {w w'} (Γ A), w'.le w -> HasVar (Var.mk A w :: Γ) 0 (A.wk Nat.succ) w'
+  | tail: ∀ {Γ A v n w}, HasVar Γ n A w -> HasVar (v :: Γ) (n + 1) (A.wk Nat.succ) w
 
 def HasVar.toGhost {α Γ n A w}: @HasVar α Γ n A w -> HasVar Γ n A ghost
-  | head _ => head (World.le.ghost _)
+  | head _ _A _ => head _ _ (World.le.ghost _)
   | tail H => tail H.toGhost
 
 inductive Term.PiType {α}: World -> Term α -> Term α -> Term α -> World -> Type
