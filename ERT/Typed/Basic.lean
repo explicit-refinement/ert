@@ -6,6 +6,18 @@ structure Var (α) where
   ty: Term α
   world: World
 
+structure Var.le {α} (x y: Var α): Prop where
+  ty: x.ty = y.ty
+  world: x.world ≤ y.world
+
+instance Var.instPartialOrder {α}: PartialOrder (Var α) where
+  le := le
+  le_refl _ := ⟨rfl, le_refl _⟩
+  le_trans _ _ _ l r := ⟨l.ty.trans r.ty, le_trans l.world r.world⟩
+  le_antisymm
+  | ⟨_, _⟩,  ⟨_, _⟩, l, r
+    => by rw [Var.mk.injEq]; exact ⟨l.ty, le_antisymm l.world r.world⟩
+
 inductive World.IsMin: World -> World -> World -> Type
   | ghost_left (w w'): IsMin w ghost w'
   | ghost_right (w): IsMin ghost comp w

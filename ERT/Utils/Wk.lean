@@ -1,6 +1,7 @@
 import Mathlib.Order.Monotone.Basic
 import Mathlib.Init.Function
 import Mathlib.Logic.Function.Basic
+import Mathlib.Data.Nat.Defs
 
 /-!
 # Weakenings
@@ -8,8 +9,7 @@ import Mathlib.Logic.Function.Basic
 Definitions and utilities for weakening de-Bruijn indices
 -/
 
-def stepWk (ρ: Nat -> Nat): Nat -> Nat
-  | n => (ρ n) + 1
+def stepWk (ρ: Nat -> Nat): Nat -> Nat := Nat.succ ∘ ρ
 
 def liftWk (ρ: Nat -> Nat): Nat -> Nat
   | 0 => 0
@@ -171,3 +171,136 @@ theorem liftnWk_eq_iterate_liftWk: liftnWk = Nat.iterate liftWk := by
 
 theorem liftnWk_succ (n): liftnWk (n.succ) = liftnWk n ∘ liftWk := by
   rw [liftnWk_eq_iterate_liftWk, Function.iterate_succ]
+
+/-
+Modifying weakenings
+-/
+
+def shiftWk (ρ: Nat -> Nat): Nat -> Nat := ρ ∘ Nat.succ
+def predWk (ρ: Nat -> Nat) : Nat -> Nat := Nat.pred ∘ ρ
+def unliftWk (ρ: Nat -> Nat): Nat -> Nat := predWk (shiftWk ρ)
+def unliftWk_liftWk_id (ρ: Nat -> Nat): unliftWk (liftWk ρ) = ρ := by
+  funext n
+  cases n <;> rfl
+def zero_zero_liftWk_unliftWk (ρ: Nat -> Nat)
+  (H: ρ 0 = 0) (H': ∀n: ℕ, ρ n.succ ≠ 0): liftWk (unliftWk ρ) = ρ := by
+  funext n
+  cases n with
+  | zero => exact H.symm
+  | succ n =>
+    simp [
+      liftWk, unliftWk, shiftWk, predWk,
+      <-Nat.succ_eq_add_one,
+      Nat.succ_pred_eq_of_ne_zero (H' n)]
+def predWk_stepWk_id (ρ: Nat -> Nat): predWk (stepWk ρ) = ρ := by
+  funext n
+  cases n <;> rfl
+def zero_zero_predWk_liftWk_shiftWk {ρ: Nat -> Nat} (H: ρ 0 = 0)
+  : predWk (liftWk (shiftWk ρ)) = ρ := by
+  funext n
+  cases n with
+  | zero => exact H.symm
+  | succ _ => rfl
+def unliftWk_stepWk_shiftWk (ρ: Nat -> Nat): unliftWk (stepWk ρ) = shiftWk ρ := by
+  funext n
+  cases n <;> rfl
+def stepWk_predWk_nz_id (ρ: Nat -> Nat) (H: ∀n: ℕ, ρ n ≠ 0): stepWk (predWk ρ) = ρ := by
+  funext n; exact Nat.succ_pred_eq_of_ne_zero (H n)
+
+/-
+Weakening on natural numbers
+-/
+
+inductive WkNat: (ℕ -> ℕ) -> ℕ -> ℕ -> Prop
+  | nil ρ: WkNat ρ 0 0
+  | lift: WkNat ρ n m -> WkNat (liftWk ρ) (n.succ) (m.succ)
+  | step: WkNat ρ n m -> WkNat (stepWk ρ) n (m.succ)
+
+def WkNat.bounded {ρ n m k}: WkNat ρ n m -> (k < n) -> (ρ k < m)
+  | lift R, H => match k with
+    | 0 => by simp [liftWk]
+    | k + 1 => Nat.succ_lt_succ (R.bounded (Nat.lt_of_succ_lt_succ H))
+  | step R, H => Nat.succ_lt_succ (R.bounded H)
+
+def WkNat.noalias {ρ n m k}: WkNat ρ n m -> (k ≥ n) -> (ρ k ≥ m)
+  | nil _, H => Nat.zero_le _
+  | lift R, H => match k with
+    | 0 => by cases H
+    | k + 1 => Nat.succ_le_succ (R.noalias (Nat.le_of_succ_le_succ H))
+  | step R, H => Nat.succ_le_succ (R.noalias H)
+
+def WkNat.inj {ρ n m k k'}: WkNat ρ n m -> (k < n) -> (k' < n) -> (ρ k = ρ k') -> k = k'
+  | lift R, H, H', Heq => match k, k' with
+    | 0, 0 => rfl
+    | 0, k + 1 => by cases Heq
+    | k + 1, 0 => by cases Heq
+    | k + 1, k' + 1 => congrArg
+      Nat.succ
+      (R.inj (Nat.lt_of_succ_lt_succ H)
+        (Nat.lt_of_succ_lt_succ H')
+        (Nat.succ_injective Heq))
+  | step R, H, H', Heq => Nat.succ_injective (congrArg
+    Nat.succ
+    (R.inj H H' (Nat.succ_injective Heq)))
+
+def WkNat.mono {ρ n m k k'}: WkNat ρ n m -> (k < n) -> (k' < n) -> (k ≤ k') -> (ρ k ≤ ρ k')
+  | lift R, Hk, Hk', H => match k, k' with
+    | 0, _ => Nat.zero_le _
+    | n + 1, 0 => by cases H
+    | n + 1, m + 1 => Nat.succ_le_succ (mono R
+      (Nat.lt_of_succ_lt_succ Hk)
+      (Nat.lt_of_succ_lt_succ Hk')
+      (Nat.le_of_succ_le_succ H))
+  | step R, Hk, Hk', H => Nat.succ_le_succ (mono R Hk Hk' H)
+
+def WkNat.nz {ρ n m} (k: ℕ): WkNat ρ n (m + 1) -> ρ 0 ≠ 0 -> ρ k ≠ 0
+  | step _, H => by simp [stepWk]
+
+def WkNat.bound_le {ρ n m}: WkNat ρ n m -> n ≤ m
+  | nil _ => le_refl _
+  | lift R => Nat.succ_le_succ (R.bound_le)
+  | step R => Nat.le_step (R.bound_le)
+
+--TODO: WkNat <==> bounded ∧ noalias ∧ inj ?
+
+def WkNat.app {ρ n m} (R: WkNat ρ n m) (k: Fin n): Fin m
+  := ⟨ρ k.val, R.bounded k.isLt⟩
+
+theorem WkNat.app_val {ρ n m} (R: WkNat ρ n m) (k: Fin n): (R.app k).val = ρ k.val
+  := rfl
+
+def WkNat.app_injective {ρ n m} (R: WkNat ρ n m): Function.Injective R.app
+  := λk k' H => Fin.eq_of_val_eq (WkNat.inj R k.isLt k'.isLt (Fin.val_eq_of_eq H))
+
+inductive WkNatT: (ℕ -> ℕ) -> ℕ -> ℕ -> Type
+  | nil ρ: WkNatT ρ 0 0
+  | lift: WkNatT ρ n m -> WkNatT (liftWk ρ) (n.succ) (m.succ)
+  | step: WkNatT ρ n m -> WkNatT (stepWk ρ) n (m.succ)
+
+def WkNat.toWkNatT {ρ n m} (R: WkNat ρ n m): WkNatT ρ n m
+  := match n, m with
+  | 0, 0 => WkNatT.nil ρ
+  | n + 1, 0 => False.elim (by cases R)
+  | n, m + 1 => if p: ρ 0 = 0
+    then
+      match n with
+      | 0 => False.elim (by cases R; cases p)
+      | n + 1 =>
+        have H := zero_zero_liftWk_unliftWk _ p
+          (λn => by cases R <;> simp [liftWk, stepWk])
+        let R': WkNat (unliftWk ρ) n m := by
+          cases R with
+          | lift R => exact unliftWk_liftWk_id _ ▸ R
+          | step R => cases p
+        H ▸ (WkNatT.lift (WkNat.toWkNatT R'))
+    else
+      let R': WkNat (predWk ρ) n m := by
+        cases R with
+        | lift R => exfalso; exact p rfl
+        | step R => exact predWk_stepWk_id _ ▸ R
+      (stepWk_predWk_nz_id ρ (λn => R.nz n p)) ▸ (WkNatT.step (WkNat.toWkNatT R'))
+
+theorem WkNatT.toWkNat {ρ n m}: WkNatT ρ n m -> WkNat ρ n m
+  | WkNatT.nil _ => WkNat.nil _
+  | WkNatT.lift R => WkNat.lift (WkNatT.toWkNat R)
+  | WkNatT.step R => WkNat.step (WkNatT.toWkNat R)
