@@ -1,4 +1,6 @@
-import ERT.Typed.Basic
+import ERT.Higher.Typed.Mono.Basic
+
+namespace HERT
 
 inductive WkCtx {α}: (Γ: List (Var α)) -> (Δ: List (Var α)) -> (ℕ -> ℕ) -> Type
   | nil (ρ): WkCtx [] [] ρ

@@ -3,6 +3,8 @@ import Mathlib.Order.MinMax
 import Std.Tactic.SolveByElim
 import Aesop
 
+namespace HERT
+
 inductive World
   | comp
   | ghost
