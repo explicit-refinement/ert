@@ -2,6 +2,7 @@ import Mathlib.Order.Monotone.Basic
 import Mathlib.Init.Function
 import Mathlib.Logic.Function.Basic
 import Mathlib.Data.Nat.Defs
+import Mathlib.Data.Fin.Fin2
 
 /-!
 # Weakenings
@@ -337,3 +338,34 @@ theorem WkNatT.uniq {ρ n k} (R R': WkNatT ρ n k): R = R' := by
 
 instance WkNatT.instSubsingleton {ρ n k}: Subsingleton (WkNatT ρ n k) where
   allEq := WkNatT.uniq
+
+def WkNatT.app {ρ n m} (R: WkNatT ρ n m) (k: Fin n): Fin m
+  := ⟨ρ k.val, R.toWkNat.bounded k.isLt⟩
+
+def WkNatT.app_rec {ρ n m}: WkNatT ρ n m -> Fin n -> Fin m
+  | nil _, k => k
+  | lift _, 0 => 0
+  | lift R, ⟨k + 1, Hk⟩ => (R.app_rec ⟨k, Nat.lt_of_succ_lt_succ Hk⟩).succ
+  | step R, k => (R.app_rec k).succ
+
+theorem WkNatT.app_rec_eq_app {ρ n m}: (R: WkNatT ρ n m) -> R.app_rec = R.app
+  | nil _ => by funext ⟨_, H⟩; cases H
+  | lift R => by
+    funext ⟨k, Hk⟩;
+    cases k with
+    | zero => rfl
+    | succ k =>
+      simp [app_rec, app, liftWk, Fin.succ, app_rec_eq_app R]
+  | step R => by funext k; simp only [app_rec, app_rec_eq_app R]; rfl
+
+def WkNatT.app_cases {ρ n m}: WkNatT ρ n m -> Fin n -> Fin m
+  | nil _, k => k
+  | lift _, 0 => 0
+  | lift R, ⟨k + 1, Hk⟩ => (R.app_rec ⟨k, Nat.lt_of_succ_lt_succ Hk⟩).succ
+  | step R, k => (R.app k).succ
+
+def WkNatT.app2 {ρ n m}: WkNatT ρ n m -> Fin2 n -> Fin2 m
+  | nil _, k => k
+  | lift _, Fin2.fz => Fin2.fz
+  | lift R, Fin2.fs f => Fin2.fs (R.app2 f)
+  | step R, k => Fin2.fs (R.app2 k)
