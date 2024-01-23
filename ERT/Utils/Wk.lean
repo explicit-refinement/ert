@@ -298,22 +298,6 @@ def WkNatT.comp {ρ σ: ℕ -> ℕ} {n m k: ℕ}
   | step R, lift R' => step (comp R R')
   | R, step R' => step (comp R R')
 
--- def WkNatT.uniq {ρ n k}: (R R': WkNatT ρ n k) -> R = R'
---   | nil _, nil _ => rfl
---   | lift R, R' => by
---     rename_i ρ n k
---     let ρ' := liftWk ρ
---     generalize E: ρ' = ρ''
---     have E: liftWk ρ = ρ'' := E
---     rw [E] at R'
---     cases R' with
---     | lift R'' => sorry
---     | step R' => exfalso; apply liftWk_ne_stepWk; assumption
---   | step _, R' => sorry
-
--- instance WkNatT.instSubsingleton {ρ n k}: Subsingleton (WkNatT ρ n k) where
---   allEq := WkNatT.uniq
-
 def WkNat.toWkNatT {ρ n m} (R: WkNat ρ n m): WkNatT ρ n m
   := match n, m with
   | 0, 0 => WkNatT.nil ρ
@@ -341,3 +325,15 @@ theorem WkNatT.toWkNat {ρ n m}: WkNatT ρ n m -> WkNat ρ n m
   | WkNatT.nil _ => WkNat.nil _
   | WkNatT.lift R => WkNat.lift (WkNatT.toWkNat R)
   | WkNatT.step R => WkNat.step (WkNatT.toWkNat R)
+
+theorem WkNatT.eq_toWkNat_toWkNatT {ρ n m}:
+  (R: WkNatT ρ n m) -> R.toWkNat.toWkNatT = R
+  | nil _ => rfl
+  | lift R => by simp [WkNat.toWkNatT, liftWk, eq_toWkNat_toWkNatT R]
+  | step R => by simp [WkNat.toWkNatT, stepWk, eq_toWkNat_toWkNatT R]
+
+theorem WkNatT.uniq {ρ n k} (R R': WkNatT ρ n k): R = R' := by
+  rw [<-eq_toWkNat_toWkNatT R, <-eq_toWkNat_toWkNatT R']
+
+instance WkNatT.instSubsingleton {ρ n k}: Subsingleton (WkNatT ρ n k) where
+  allEq := WkNatT.uniq
