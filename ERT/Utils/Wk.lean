@@ -23,6 +23,10 @@ def liftWk_comp (ρ σ: Nat -> Nat): liftWk (ρ ∘ σ) = liftWk ρ ∘ liftWk �
 def liftWk_comp_succ (ρ: Nat -> Nat): liftWk ρ ∘ Nat.succ = Nat.succ ∘ ρ := by
   funext n; cases n <;> rfl
 
+def liftWk_ne_stepWk (ρ σ: Nat -> Nat): liftWk ρ ≠ stepWk σ :=
+  have H: (liftWk ρ 0) ≠ (stepWk σ 0) := by simp [liftWk, stepWk]
+  λH' => H (by rw [H'])
+
 /-
 Equality functions up-to-n
 -/
@@ -216,6 +220,13 @@ inductive WkNat: (ℕ -> ℕ) -> ℕ -> ℕ -> Prop
   | lift: WkNat ρ n m -> WkNat (liftWk ρ) (n.succ) (m.succ)
   | step: WkNat ρ n m -> WkNat (stepWk ρ) n (m.succ)
 
+def WkNat.comp {ρ σ: ℕ -> ℕ} {n m k: ℕ}
+  : WkNat ρ n m -> WkNat σ m k -> WkNat (σ ∘ ρ) n k
+  | nil _, nil _ => nil _
+  | lift R, lift R' => liftWk_comp _ _ ▸ lift (comp R R')
+  | step R, lift R' => step (comp R R')
+  | R, step R' => step (comp R R')
+
 def WkNat.bounded {ρ n m k}: WkNat ρ n m -> (k < n) -> (ρ k < m)
   | lift R, H => match k with
     | 0 => by simp [liftWk]
@@ -276,6 +287,32 @@ inductive WkNatT: (ℕ -> ℕ) -> ℕ -> ℕ -> Type
   | nil ρ: WkNatT ρ 0 0
   | lift: WkNatT ρ n m -> WkNatT (liftWk ρ) (n.succ) (m.succ)
   | step: WkNatT ρ n m -> WkNatT (stepWk ρ) n (m.succ)
+
+theorem WkNatT.nil_eq: (R: WkNatT ρ 0 0) -> R = nil ρ
+  | nil _ => rfl
+
+def WkNatT.comp {ρ σ: ℕ -> ℕ} {n m k: ℕ}
+  : WkNatT ρ n m -> WkNatT σ m k -> WkNatT (σ ∘ ρ) n k
+  | nil _, nil _ => nil _
+  | lift R, lift R' => liftWk_comp _ _ ▸ lift (comp R R')
+  | step R, lift R' => step (comp R R')
+  | R, step R' => step (comp R R')
+
+-- def WkNatT.uniq {ρ n k}: (R R': WkNatT ρ n k) -> R = R'
+--   | nil _, nil _ => rfl
+--   | lift R, R' => by
+--     rename_i ρ n k
+--     let ρ' := liftWk ρ
+--     generalize E: ρ' = ρ''
+--     have E: liftWk ρ = ρ'' := E
+--     rw [E] at R'
+--     cases R' with
+--     | lift R'' => sorry
+--     | step R' => exfalso; apply liftWk_ne_stepWk; assumption
+--   | step _, R' => sorry
+
+-- instance WkNatT.instSubsingleton {ρ n k}: Subsingleton (WkNatT ρ n k) where
+--   allEq := WkNatT.uniq
 
 def WkNat.toWkNatT {ρ n m} (R: WkNat ρ n m): WkNatT ρ n m
   := match n, m with
