@@ -7,26 +7,24 @@ import ERT.Stlc.Basic
 
 namespace Stlc.Intrinsic
 
-inductive Var: Ctx -> Ty -> Type
+inductive Var {τ}: Ctx τ -> Ty τ -> Type
 | head: Var (A :: Γ) A
 | tail: Var Γ A -> Var (B :: Γ) A
 
-inductive Stlc: Ctx -> Ty -> Type
-| var: Var Γ A -> Stlc Γ A
-| app: Stlc Γ (Ty.fn A B) -> Stlc Γ A -> Stlc Γ B
-| lam: Stlc (A :: Γ) B -> Stlc Γ (Ty.fn A B)
-| pair: Stlc Γ A -> Stlc Γ B -> Stlc Γ (Ty.prod A B)
-| let2: Stlc Γ (Ty.prod A B) -> Stlc (A :: B :: Γ) C -> Stlc Γ C
-| cases: Stlc Γ (Ty.coprod A B) -> Stlc (A :: Γ) C -> Stlc (B :: Γ) C -> Stlc Γ C
-| inl: Stlc Γ A -> Stlc Γ (Ty.coprod A B)
-| inr: Stlc Γ B -> Stlc Γ (Ty.coprod A B)
-| unit: Stlc Γ Ty.unit
-| zero: Stlc Γ Ty.nat
-| succ: Stlc Γ Ty.nat -> Stlc Γ Ty.nat
-| natrec: Stlc Γ Ty.nat -> Stlc Γ C -> Stlc (C :: Γ) C -> Stlc Γ C
-| abort: Stlc Γ A
+inductive Term {α} [τ: TypedConst α]: Ctx τ.Base -> Ty τ.Base -> Type
+| var: Var Γ A -> Term Γ A
+| app: Term Γ (Ty.fn A B) -> Term Γ A -> Term Γ B
+| lam: Term (A :: Γ) B -> Term Γ (Ty.fn A B)
+| pair: Term Γ A -> Term Γ B -> Term Γ (Ty.prod A B)
+| let2: Term Γ (Ty.prod A B) -> Term (A :: B :: Γ) C -> Term Γ C
+| cases: Term Γ (Ty.coprod A B) -> Term (A :: Γ) C -> Term (B :: Γ) C -> Term Γ C
+| inl: Term Γ A -> Term Γ (Ty.coprod A B)
+| inr: Term Γ B -> Term Γ (Ty.coprod A B)
+| const (a: α): Term Γ (τ.cnstTy a)
+| abort: Term Γ A
 
-inductive Wk: Ctx -> Ctx -> Type
+--TODO: factor to Wk utils as `WkList` or somesuch?
+inductive Wk {τ}: Ctx τ -> Ctx τ -> Type
 | id: Wk [] []
 | lift: Wk Γ Δ -> Wk (A :: Γ) (A :: Δ)
 | step: Wk Γ Δ -> Wk (A :: Γ) Δ
@@ -38,7 +36,8 @@ def Var.wk: Wk Γ Δ -> Var Δ A -> Var Γ A
 | lift ρ, tail v
 | step ρ, v => tail (v.wk ρ)
 
-def Stlc.wk (ρ: Wk Γ Δ): Stlc Δ A -> Stlc Γ A
+def Term.wk {α} [τ: TypedConst α] {Γ Δ: Ctx τ.Base} {A: Ty τ.Base}
+  (ρ: Wk Γ Δ): Term Δ A -> Term Γ A
 | var v => var (v.wk ρ)
 | app s t => app (s.wk ρ) (t.wk ρ)
 | lam s => lam (s.wk ρ.lift)
@@ -47,10 +46,7 @@ def Stlc.wk (ρ: Wk Γ Δ): Stlc Δ A -> Stlc Γ A
 | cases s t u => cases (s.wk ρ) (t.wk ρ.lift) (u.wk ρ.lift)
 | inl s => inl (s.wk ρ)
 | inr s => inr (s.wk ρ)
-| unit => unit
-| zero => zero
-| succ s => succ (s.wk ρ)
-| natrec n s z => natrec (n.wk ρ) (s.wk ρ) (z.wk ρ.lift)
+| const a => const a
 | abort => abort
 
 --  TODO: Subst
