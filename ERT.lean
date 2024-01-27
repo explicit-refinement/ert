@@ -7,7 +7,8 @@ import ERT.Higher.Typed.Annot.Basic
 
 import ERT.Ghost.Basic
 
-import ERT.Stlc.Basic
+import ERT.Stlc.Intrinsic.Basic
+import ERT.Stlc.DeBruijn.Basic
 
 
 /-!
