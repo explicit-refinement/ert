@@ -1,4 +1,4 @@
-import ERT.Higher.Typed.Mono.Basic
+import ERT.Higher.Typed.Basic
 
 namespace HERT
 

@@ -1,9 +1,8 @@
 import ERT.Utils.Wk
 
 import ERT.Higher.Basic
-import ERT.Higher.Typed.Mono.Basic
-import ERT.Higher.Typed.Mono.Wk
-import ERT.Higher.Typed.Annot.Basic
+import ERT.Higher.Typed.Basic
+import ERT.Higher.Typed.Wk
 
 import ERT.Ghost.Basic
 
