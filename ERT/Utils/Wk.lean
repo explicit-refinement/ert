@@ -409,12 +409,59 @@ def WkNatT.toNatWk {ρ m n}: WkNatT ρ m n -> NatWk m n
 
 theorem NatWk.is_wk {m n} (ρ: NatWk m n): WkNat ρ.toFn m n := ρ.toWkNat.toWkNat
 
-inductive WkList {A}: (Nat -> Nat) -> List A -> List A -> Type
+inductive WkList {A}: (Nat -> Nat) -> List A -> List A -> Prop
   | nil ρ: WkList ρ [] []
-  | cons ρ x xs ys: WkList ρ xs ys -> WkList (liftWk ρ) (x::xs) (x::ys)
-  | step ρ x xs ys: WkList ρ xs ys -> WkList (stepWk ρ) (x::xs) ys
+  | cons {ρ xs ys} x: WkList ρ xs ys -> WkList (liftWk ρ) (x::xs) (x::ys)
+  | step {ρ xs ys} x: WkList ρ xs ys -> WkList (stepWk ρ) (x::xs) ys
+
+def WkList.toWkNat {A} {ρ: Nat -> Nat} {xs ys: List A}
+  : WkList ρ xs ys -> WkNat ρ xs.length ys.length
+  | nil _ => WkNat.nil _
+  | cons _ R => WkNat.lift (toWkNat R)
+  | step _ R => WkNat.step (toWkNat R)
+
+inductive WkListT {A}: (Nat -> Nat) -> List A -> List A -> Type
+  | nil ρ: WkListT ρ [] []
+  | cons {ρ xs ys} x: WkListT ρ xs ys -> WkListT (liftWk ρ) (x::xs) (x::ys)
+  | step {ρ xs ys} x: WkListT ρ xs ys -> WkListT (stepWk ρ) (x::xs) ys
+
+def WkList.toWkNatT {A} {ρ: Nat -> Nat} {xs ys: List A}
+  : WkList ρ xs ys -> WkNat ρ xs.length ys.length
+  | nil _ => WkNat.nil _
+  | cons _ R => WkNat.lift (toWkNat R)
+  | step _ R => WkNat.step (toWkNat R)
+
+theorem WkListT.toWkList {A} {ρ: Nat -> Nat} {xs ys: List A}
+  : WkListT ρ xs ys -> WkList ρ xs ys
+  | nil _ => WkList.nil _
+  | cons _ R => WkList.cons _ (toWkList R)
+  | step _ R => WkList.step _ (toWkList R)
 
 inductive ListWk {A}: List A -> List A -> Type
   | nil: ListWk [] []
-  | lift: ListWk xs ys -> ListWk (x::xs) (x::ys)
-  | step: ListWk xs ys -> ListWk (x::xs) ys
+  | lift x: ListWk xs ys -> ListWk (x::xs) (x::ys)
+  | step x: ListWk xs ys -> ListWk (x::xs) ys
+
+def ListWk.toNatWk {A} {Γ Δ: List A}: ListWk Γ Δ -> NatWk Γ.length Δ.length
+  | ListWk.nil => NatWk.nil
+  | ListWk.lift _ R => NatWk.lift (ListWk.toNatWk R)
+  | ListWk.step _ R => NatWk.step (ListWk.toNatWk R)
+
+inductive OrdWk {A} [PartialOrder A]: List A -> List A -> Type
+  | nil: OrdWk [] []
+  | lift: x ≥ y -> OrdWk xs ys -> OrdWk (x::xs) (y::ys)
+  | step: OrdWk xs ys -> OrdWk (x::xs) ys
+
+def OrdWk.toNatWk {A} [PartialOrder A] {Γ Δ: List A}: OrdWk Γ Δ -> NatWk Γ.length Δ.length
+  | OrdWk.nil => NatWk.nil
+  | OrdWk.lift H R => NatWk.lift (OrdWk.toNatWk R)
+  | OrdWk.step R => NatWk.step (OrdWk.toNatWk R)
+
+def ListWk.toOrdWk {A} [PartialOrder A] {Γ Δ: List A}: ListWk Γ Δ -> OrdWk Γ Δ
+  | ListWk.nil => OrdWk.nil
+  | ListWk.lift _ R => OrdWk.lift (le_refl _) (ListWk.toOrdWk R)
+  | ListWk.step _ R => OrdWk.step (ListWk.toOrdWk R)
+
+theorem ListWk.toOrdWk_NatWk {A} [PartialOrder A] {Γ Δ: List A} (R: ListWk Γ Δ)
+  : ListWk.toNatWk R = OrdWk.toNatWk (ListWk.toOrdWk R) := by
+  induction R <;> simp [ListWk.toOrdWk, OrdWk.toNatWk, ListWk.toNatWk, *]
