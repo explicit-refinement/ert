@@ -96,6 +96,9 @@ inductive Term (α: Type)
   | irir
   | prir
 
+  -- Constants
+  | cnst (a: α)
+
 def Term.fv {α}: Term α -> ℕ
   | var n => n.succ
   | pi _ A B | sigma _ A B => A.fv.max B.fv.pred
