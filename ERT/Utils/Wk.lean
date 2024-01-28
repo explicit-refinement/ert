@@ -342,11 +342,21 @@ instance WkNatT.instSubsingleton {ρ n k}: Subsingleton (WkNatT ρ n k) where
 def WkNatT.app {ρ n m} (R: WkNatT ρ n m) (k: Fin n): Fin m
   := ⟨ρ k.val, R.toWkNat.bounded k.isLt⟩
 
+def Fin.lift {n m} (ρ: Fin n -> Fin m): Fin (n + 1) -> Fin (m + 1)
+  := Fin.cases 0 (Fin.succ ∘ ρ)
+
+theorem Fin.lift_id {n}: Fin.lift (@id (Fin n)) = id := by
+  funext ⟨k, H⟩
+  cases k with
+  | zero => rfl
+  | succ k => simp [Fin.lift, Fin.succ]
+
+-- TODO: liftn, etc
+
 def WkNatT.app_rec {ρ n m}: WkNatT ρ n m -> Fin n -> Fin m
-  | nil _, k => k
-  | lift _, 0 => 0
-  | lift R, ⟨k + 1, Hk⟩ => (R.app_rec ⟨k, Nat.lt_of_succ_lt_succ Hk⟩).succ
-  | step R, k => (R.app_rec k).succ
+  | nil _ => id
+  | lift R => Fin.lift (R.app_rec)
+  | step R => Fin.succ ∘ R.app_rec
 
 theorem WkNatT.app_rec_eq_app {ρ n m}: (R: WkNatT ρ n m) -> R.app_rec = R.app
   | nil _ => by funext ⟨_, H⟩; cases H
@@ -355,7 +365,7 @@ theorem WkNatT.app_rec_eq_app {ρ n m}: (R: WkNatT ρ n m) -> R.app_rec = R.app
     cases k with
     | zero => rfl
     | succ k =>
-      simp [app_rec, app, liftWk, Fin.succ, app_rec_eq_app R]
+      simp [app_rec, app, liftWk, Fin.succ, Fin.lift, app_rec_eq_app R]
   | step R => by funext k; simp only [app_rec, app_rec_eq_app R]; rfl
 
 def WkNatT.app_cases {ρ n m}: WkNatT ρ n m -> Fin n -> Fin m
@@ -369,3 +379,42 @@ def WkNatT.app2 {ρ n m}: WkNatT ρ n m -> Fin2 n -> Fin2 m
   | lift _, Fin2.fz => Fin2.fz
   | lift R, Fin2.fs f => Fin2.fs (R.app2 f)
   | step R, k => Fin2.fs (R.app2 k)
+
+inductive NatWk: ℕ -> ℕ -> Type
+  | nil: NatWk 0 0
+  | lift: NatWk n m -> NatWk (n.succ) (m.succ)
+  | step: NatWk n m -> NatWk n (m.succ)
+
+def NatWk.app {n m}: NatWk n m -> Fin n -> Fin m
+  | nil => id
+  | lift R => Fin.lift (R.app)
+  | step R => Fin.succ ∘ R.app
+
+def NatWk.toFn {n m}: NatWk n m -> Nat -> Nat
+  | nil => id
+  | lift R => liftWk R.toFn
+  | step R => stepWk R.toFn
+
+def NatWk.toWkNat {n m}: (ρ: NatWk n m) -> WkNatT ρ.toFn n m
+  | nil => WkNatT.nil _
+  | lift R => WkNatT.lift (toWkNat R)
+  | step R => WkNatT.step (toWkNat R)
+
+def WkNatT.toNatWk {ρ n m}: WkNatT ρ n m -> NatWk n m
+  | WkNatT.nil _ => NatWk.nil
+  | WkNatT.lift R => NatWk.lift (toNatWk R)
+  | WkNatT.step R => NatWk.step (toNatWk R)
+
+-- theorem: equal on fin, etc
+
+theorem NatWk.is_wk {n m} (ρ: NatWk n m): WkNat ρ.toFn n m := ρ.toWkNat.toWkNat
+
+inductive WkList {A}: (Nat -> Nat) -> List A -> List A -> Type
+  | nil ρ: WkList ρ [] []
+  | cons ρ x xs ys: WkList ρ xs ys -> WkList (liftWk ρ) (x::xs) (x::ys)
+  | step ρ x xs ys: WkList ρ xs ys -> WkList (stepWk ρ) xs (x::ys)
+
+inductive ListWk {A}: List A -> List A -> Type
+  | nil: ListWk [] []
+  | lift: ListWk xs ys -> ListWk (x::xs) (x::ys)
+  | step: ListWk xs ys -> ListWk xs (y::ys)
