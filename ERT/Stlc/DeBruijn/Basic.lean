@@ -3,17 +3,11 @@ import ERT.Utils.Wk
 
 namespace Stlc.DeBruijn
 
--- TODO: just make this a prop or smt...
-
-inductive Var {τ}: Ctx τ -> Nat -> Ty τ -> Type
-| head : Var (A :: Γ) 0 A
-| tail : Var Γ n A -> Var (B :: Γ) (n + 1) A
-
 open Term
 open Ty
 
 inductive HasTy {α} [τ: TypedConst α]: Ctx τ.Base -> Term α -> Ty τ.Base -> Type
-| var : Var Γ n A -> HasTy Γ (var n) A
+| var : At Γ n A -> HasTy Γ (var n) A
 | app : HasTy Γ s (fn A B)
     -> HasTy Γ t A
     -> HasTy Γ (app s t) B

@@ -486,3 +486,68 @@ def ListWk.toOrdWk {A} [PartialOrder A] {Γ Δ: List A}: ListWk Γ Δ -> OrdWk �
 theorem ListWk.toOrdWk_NatWk {A} [PartialOrder A] {Γ Δ: List A} (R: ListWk Γ Δ)
   : ListWk.toNatWk R = OrdWk.toNatWk (ListWk.toOrdWk R) := by
   induction R <;> simp [ListWk.toOrdWk, OrdWk.toNatWk, ListWk.toNatWk, *]
+
+inductive At {A}: List A -> ℕ -> A -> Prop
+  | head (x xs): At (x::xs) 0 x
+  | tail (x) {xs n y}: At xs n y -> At (x::xs) (n + 1) y
+
+theorem At.head_eq: At (y::Γ) 0 x -> x = y
+  | At.head _ _ => rfl
+
+theorem At.to_tail: At (x::Γ) (n + 1) x -> At Γ n x
+  | At.tail _ R => R
+
+theorem At.wk {ρ Γ Δ}: WkList ρ Γ Δ -> At Δ n x -> At Γ (ρ n) x
+  | WkList.lift _ R, At.head _ _ => At.head _ _
+  | WkList.lift _ R, At.tail _ R'
+  | WkList.step _ R, R' => At.tail _ (wk R R')
+
+inductive AtT {A}: List A -> ℕ -> A -> Type
+  | head (x xs): AtT (x::xs) 0 x
+  | tail (x) {xs n y}: AtT xs n y -> AtT (x::xs) (n + 1) y
+
+theorem AtT.toAt: AtT Γ n A -> At Γ n A
+  | AtT.head x xs => At.head x xs
+  | AtT.tail x R => At.tail x R.toAt
+
+def AtT.to_tail: AtT (x::Γ) (n + 1) x -> AtT Γ n x
+  | AtT.tail _ R => R
+
+instance: Subsingleton (AtT Γ n A) where
+  allEq := by
+    intro R R'
+    induction R with
+    | head x xs => cases R'; rfl
+    | tail x R I => cases R'; rw [I]
+
+def At.toAtT {α}: {Γ: List α} -> {n: ℕ} -> {x: α} -> At Γ n x -> AtT Γ n x
+  | [], _, _, R => False.elim (by cases R)
+  | x::Γ, 0, y, R =>
+    have H: x = y := by cases R; rfl
+    H ▸ AtT.head x Γ
+  | x::Γ, n + 1, _, R => AtT.tail x (At.toAtT (by cases R; assumption))
+
+def AtT.wk {ρ Γ Δ} (R: WkList ρ Γ Δ) (i: AtT Δ n x): AtT Γ (ρ n) x
+  := (i.toAt.wk R).toAtT
+
+inductive Ix {A}: List A -> A -> Type
+  | head (x xs): Ix (x::xs) x
+  | tail (x) {xs y}: Ix xs y -> Ix (x::xs) y
+
+def Ix.toNat: Ix Γ x -> ℕ
+  | head _x _ => 0
+  | tail _ R => R.toNat + 1
+
+def Ix.toAtT: (i: Ix Γ x) -> AtT Γ i.toNat x
+  | head _x _ => AtT.head _ _
+  | tail _ i => AtT.tail _ i.toAtT
+
+theorem Ix.toAt (i: Ix Γ x): At Γ i.toNat x
+  := i.toAtT.toAt
+
+def Ix.wk: ListWk Γ Δ -> Ix Δ A -> Ix Γ A
+| ListWk.lift _A ρ, Ix.head _ _ => Ix.head _ _
+| ListWk.lift _A ρ, Ix.tail _ v
+| ListWk.step _ ρ, v => Ix.tail _ (wk ρ v)
+
+--TODO: Ord Ix, At, etc...

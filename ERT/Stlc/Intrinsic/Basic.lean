@@ -10,12 +10,8 @@ open ListWk
 
 namespace Stlc.Intrinsic
 
-inductive Var {τ}: Ctx τ -> Ty τ -> Type
-| head: Var (A :: Γ) A
-| tail: Var Γ A -> Var (B :: Γ) A
-
 inductive Term {α} [τ: TypedConst α]: Ctx τ.Base -> Ty τ.Base -> Type
-| var: Var Γ A -> Term Γ A
+| var: Ix Γ A -> Term Γ A
 | app: Term Γ (Ty.fn A B) -> Term Γ A -> Term Γ B
 | lam: Term (A :: Γ) B -> Term Γ (Ty.fn A B)
 | pair: Term Γ A -> Term Γ B -> Term Γ (Ty.prod A B)
@@ -25,11 +21,6 @@ inductive Term {α} [τ: TypedConst α]: Ctx τ.Base -> Ty τ.Base -> Type
 | inr: Term Γ B -> Term Γ (Ty.coprod A B)
 | const (a: α): Term Γ (τ.cnstTy a)
 | abort: Term Γ A
-
-def Var.wk: ListWk Γ Δ -> Var Δ A -> Var Γ A
-| lift _A ρ, head => head
-| lift _A ρ, tail v
-| step _ ρ, v => tail (v.wk ρ)
 
 def Term.wk {α} [τ: TypedConst α] {Γ Δ: Ctx τ.Base} {A: Ty τ.Base}
   (ρ: ListWk Γ Δ): Term Δ A -> Term Γ A
