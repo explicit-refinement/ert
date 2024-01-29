@@ -411,14 +411,35 @@ theorem NatWk.is_wk {m n} (ρ: NatWk m n): WkNat ρ.toFn m n := ρ.toWkNat.toWkN
 
 inductive WkList {A}: (Nat -> Nat) -> List A -> List A -> Prop
   | nil ρ: WkList ρ [] []
-  | cons {ρ xs ys} x: WkList ρ xs ys -> WkList (liftWk ρ) (x::xs) (x::ys)
+  | lift {ρ xs ys} x: WkList ρ xs ys -> WkList (liftWk ρ) (x::xs) (x::ys)
   | step {ρ xs ys} x: WkList ρ xs ys -> WkList (stepWk ρ) (x::xs) ys
 
 def WkList.toWkNat {A} {ρ: Nat -> Nat} {xs ys: List A}
   : WkList ρ xs ys -> WkNat ρ xs.length ys.length
   | nil _ => WkNat.nil _
-  | cons _ R => WkNat.lift (toWkNat R)
+  | lift _ R => WkNat.lift (toWkNat R)
   | step _ R => WkNat.step (toWkNat R)
+
+theorem WkList.get_eq {A} {ρ} {Γ Δ: List A}
+  : (R: WkList ρ Γ Δ) -> ∀k: Fin Δ.length, Γ.get (R.toWkNat.app k) = Δ.get k
+  | lift _ R, ⟨0, _⟩ => rfl
+  | lift _ R, ⟨n + 1, Hn⟩ => R.get_eq ⟨_, Nat.lt_of_succ_lt_succ Hn⟩
+  | step _ R, _ => R.get_eq _
+
+theorem WkList.getElem_eq {A} {ρ} {Γ Δ: List A} (R: WkList ρ Γ Δ)
+  : ∀k: Fin Δ.length, Γ[R.toWkNat.app k] = Δ[k]
+  := R.get_eq
+
+theorem WkList.get?_eq {A} {ρ} {Γ Δ: List A}
+  : (R: WkList ρ Γ Δ) -> ∀k: ℕ, Γ.get? (ρ k) = Δ.get? k
+  | nil _, _ => rfl
+  | lift _ R, 0 => rfl
+  | lift _ R, n + 1 => R.get?_eq _
+  | step _ R, _ => R.get?_eq _
+
+theorem WkList.getElem?_eq {A} {ρ} {Γ Δ: List A} (R: WkList ρ Γ Δ)
+  : ∀k: ℕ, Γ[ρ k]? = Δ[k]?
+  | _ => by simp [R.get?_eq]
 
 inductive WkListT {A}: (Nat -> Nat) -> List A -> List A -> Type
   | nil ρ: WkListT ρ [] []
@@ -428,13 +449,13 @@ inductive WkListT {A}: (Nat -> Nat) -> List A -> List A -> Type
 def WkList.toWkNatT {A} {ρ: Nat -> Nat} {xs ys: List A}
   : WkList ρ xs ys -> WkNat ρ xs.length ys.length
   | nil _ => WkNat.nil _
-  | cons _ R => WkNat.lift (toWkNat R)
+  | lift _ R => WkNat.lift (toWkNat R)
   | step _ R => WkNat.step (toWkNat R)
 
 theorem WkListT.toWkList {A} {ρ: Nat -> Nat} {xs ys: List A}
   : WkListT ρ xs ys -> WkList ρ xs ys
   | nil _ => WkList.nil _
-  | cons _ R => WkList.cons _ (toWkList R)
+  | cons _ R => WkList.lift _ (toWkList R)
   | step _ R => WkList.step _ (toWkList R)
 
 inductive ListWk {A}: List A -> List A -> Type

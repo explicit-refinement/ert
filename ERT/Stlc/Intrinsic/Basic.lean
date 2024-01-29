@@ -1,4 +1,7 @@
 import ERT.Stlc.Basic
+import ERT.Utils.Wk
+
+open ListWk
 
 --  TODO: study conversion between let2 and π?
 
@@ -23,27 +26,19 @@ inductive Term {α} [τ: TypedConst α]: Ctx τ.Base -> Ty τ.Base -> Type
 | const (a: α): Term Γ (τ.cnstTy a)
 | abort: Term Γ A
 
---TODO: factor to Wk utils as `WkList` or somesuch?
-inductive Wk {τ}: Ctx τ -> Ctx τ -> Type
-| id: Wk [] []
-| lift: Wk Γ Δ -> Wk (A :: Γ) (A :: Δ)
-| step: Wk Γ Δ -> Wk (A :: Γ) Δ
-
-open Wk
-
-def Var.wk: Wk Γ Δ -> Var Δ A -> Var Γ A
-| lift ρ, head => head
-| lift ρ, tail v
-| step ρ, v => tail (v.wk ρ)
+def Var.wk: ListWk Γ Δ -> Var Δ A -> Var Γ A
+| lift _A ρ, head => head
+| lift _A ρ, tail v
+| step _ ρ, v => tail (v.wk ρ)
 
 def Term.wk {α} [τ: TypedConst α] {Γ Δ: Ctx τ.Base} {A: Ty τ.Base}
-  (ρ: Wk Γ Δ): Term Δ A -> Term Γ A
+  (ρ: ListWk Γ Δ): Term Δ A -> Term Γ A
 | var v => var (v.wk ρ)
 | app s t => app (s.wk ρ) (t.wk ρ)
-| lam s => lam (s.wk ρ.lift)
+| lam s => lam (s.wk (ρ.lift _))
 | pair s t => pair (s.wk ρ) (t.wk ρ)
-| let2 s t => let2 (s.wk ρ) (t.wk ρ.lift.lift)
-| cases s t u => cases (s.wk ρ) (t.wk ρ.lift) (u.wk ρ.lift)
+| let2 s t => let2 (s.wk ρ) (t.wk ((ρ.lift _).lift _))
+| cases s t u => cases (s.wk ρ) (t.wk (ρ.lift _)) (u.wk (ρ.lift _))
 | inl s => inl (s.wk ρ)
 | inr s => inr (s.wk ρ)
 | const a => const a

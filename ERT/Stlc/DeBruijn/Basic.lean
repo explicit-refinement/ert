@@ -1,4 +1,5 @@
 import ERT.Stlc.DeBruijn.Syntax
+import ERT.Utils.Wk
 
 namespace Stlc.DeBruijn
 
