@@ -19,22 +19,6 @@ theorem PER.of_subsingleton [S: Subsingleton α] (r: α -> α -> Prop): PER r
 def PER.carrier {α} {r: α -> α -> Prop} (_: PER r)
   : Set α := λx: α => r x x
 
-def Relation.PureMap (r: α -> β -> Prop) (T) [Pure T]
-  : T α -> T β -> Prop
-  := Relation.Map r pure pure
-
-def PER.pure_map {α} {r: α -> α -> Prop} (A: PER r) (T) [Pure T]
-  (Hinj: ∀{α}, Function.Injective (@pure T _ α))
-  : PER (Relation.PureMap r T) where
-  symm | ⟨x, y, rxy, px, py⟩ => ⟨y, x, A.symm rxy, py, px⟩
-  trans
-    | ⟨x, y, rxy, px, py⟩, ⟨y', z, ryz, py', pz⟩ =>
-      have Hyy': y = y' := Hinj (py' ▸ py)
-      ⟨x, z, A.trans (Hyy' ▸ rxy) ryz, px, pz⟩
-
--- TODO: for a lawful monad over `Type`, this should still work via `of_subsingleton` due to
--- https://math.stackexchange.com/questions/1840104/regarding-the-injectivity-of-units-of-monads-on-mathbfset
-
 def PER.lift_fun {α β} {r: α -> α -> Prop} {s: β -> β -> Prop}
   (A: PER r) (B: PER s): PER (Relator.LiftFun r s) where
   symm Hxy _ _ Haa' := B.symm (Hxy (A.symm Haa'))
