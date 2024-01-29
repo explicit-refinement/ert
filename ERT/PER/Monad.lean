@@ -8,15 +8,6 @@ def Relation.PureMap (r: α -> β -> Prop) (T) [Pure T]
   : T α -> T β -> Prop
   := Relation.Map r pure pure
 
-def PER.pure_map {α} {r: α -> α -> Prop} (A: PER r) (T) [Pure T]
-  (Hinj: ∀{α}, Function.Injective (@pure T _ α))
-  : PER (Relation.PureMap r T) where
-  symm | ⟨x, y, rxy, px, py⟩ => ⟨y, x, A.symm rxy, py, px⟩
-  trans
-    | ⟨x, y, rxy, px, py⟩, ⟨y', z, ryz, py', pz⟩ =>
-      have Hyy': y = y' := Hinj (py' ▸ py)
-      ⟨x, z, A.trans (Hyy' ▸ rxy) ryz, px, pz⟩
-
 theorem pure_naturality_square {T} [Monad T] [LawfulMonad T]
   {α β} {x y: α} (f: α -> β) (H: @pure T _ α x = @pure T _ α y)
   : @pure T _ β (f x) = @pure T _ β (f y)
@@ -62,7 +53,7 @@ theorem constant_of_not_injective {T} [Monad T] [LawfulMonad T]
         )).elim
 
 theorem local_pure_injective_or_constant
-  {T} [Monad T] [LawfulMonad T] (α)
+  (T) [Monad T] [LawfulMonad T] (α)
   : Function.Injective (@pure T _ α) ∨ Function.Constant (@pure T _ α)
   := open Classical in
   if H: Function.Injective (@pure T _ α)
@@ -70,7 +61,7 @@ theorem local_pure_injective_or_constant
   else Or.inr ⟨constant_of_not_injective H⟩
 
 theorem pure_injective_or_constant
-  {T} [Monad T] [LawfulMonad T]
+  (T) [Monad T] [LawfulMonad T]
   : (∀α, Function.Injective (@pure T _ α))
   ∨ (∀α, Function.Constant (@pure T _ α))
   := open Classical in
@@ -80,3 +71,27 @@ theorem pure_injective_or_constant
     if HI: Function.Injective (@pure T _ β)
     then HI
     else H.elim (λ_ => ⟨constant_of_not_injective HI⟩)
+
+def PER.pure_map_inj {α} {r: α -> α -> Prop} (A: PER r) (T) [Pure T]
+  (Hinj: Function.Injective (@pure T _ α))
+  : PER (Relation.PureMap r T) where
+  symm | ⟨x, y, rxy, px, py⟩ => ⟨y, x, A.symm rxy, py, px⟩
+  trans
+    | ⟨x, y, rxy, px, py⟩, ⟨y', z, ryz, py', pz⟩ =>
+      have Hyy': y = y' := Hinj (py' ▸ py)
+      ⟨x, z, A.trans (Hyy' ▸ rxy) ryz, px, pz⟩
+
+def PER.pure_map_const {α} {r: α -> α -> Prop} (A: PER r) (T) [Pure T]
+  (Hinj: Function.Constant (@pure T _ α))
+  : PER (Relation.PureMap r T) where
+  symm | ⟨x, y, rxy, px, py⟩ => ⟨y, x, A.symm rxy, py, px⟩
+  trans
+    | ⟨x, y, rxy, px, py⟩, ⟨_y', z, _ryz, _py', pz⟩ =>
+      pz ▸ Hinj.allEq y z ▸ py ▸ ⟨x, y, rxy, px, py⟩
+
+def PER.pure_map {α} {r: α -> α -> Prop} (A: PER r) (T)
+  [Monad T] [LawfulMonad T]
+  : PER (Relation.PureMap r T)
+  := match local_pure_injective_or_constant T α with
+    | Or.inl Hinj => PER.pure_map_inj A T Hinj
+    | Or.inr Hconst => PER.pure_map_const A T Hconst
