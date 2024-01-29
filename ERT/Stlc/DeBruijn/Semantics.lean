@@ -21,6 +21,16 @@ def At.den_eq_app {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {n: ℕ} {A: _}
 def At.den_eq {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {n: ℕ} {A: _} (v: At Γ n A)
   : v.den = v.toAtT.den := by funext _; rw [At.den_eq_app]
 
+def WkListT.den {α} [τ: SemanticConst α] {Γ Δ: Ctx τ.Base}
+  : WkListT ρ Γ Δ -> Γ.den -> Δ.den
+  | WkListT.nil _, G => G
+  | WkListT.lift _ R, (x, G) => (x, R.den G)
+  | WkListT.step _ R, (x, G) => R.den G
+
+def WkList.den {α} [τ: SemanticConst α] {Γ Δ: Ctx τ.Base} (R: WkList ρ Γ Δ)
+  : Γ.den -> Δ.den
+  := R.toWkListT.den
+
 namespace Stlc.DeBruijn
 
 def HasTy.den {α} [τ: SemanticConst α] {Γ} {a: Term α} {A}

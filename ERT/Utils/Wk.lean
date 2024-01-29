@@ -18,6 +18,18 @@ def liftWk (ρ: Nat -> Nat): Nat -> Nat
 
 def liftWk_id: liftWk id = id := by funext n; cases n <;> simp [liftWk]
 
+def liftWk_inj: Function.Injective liftWk := by
+  intro ρ σ H
+  funext n
+  have H': liftWk ρ (n + 1) = liftWk σ (n + 1) := by rw [H]
+  exact Nat.succ_injective H'
+
+def stepWk_inj: Function.Injective stepWk := by
+  intro ρ σ H
+  funext n
+  have H': stepWk ρ n = stepWk σ n := by rw [H]
+  exact Nat.succ_injective H'
+
 def liftWk_comp (ρ σ: Nat -> Nat): liftWk (ρ ∘ σ) = liftWk ρ ∘ liftWk σ := by
  funext n; cases n <;> simp [liftWk]
 
@@ -336,7 +348,7 @@ theorem WkNatT.eq_toWkNat_toWkNatT {ρ n m}:
 theorem WkNatT.uniq {ρ n k} (R R': WkNatT ρ n k): R = R' := by
   rw [<-eq_toWkNat_toWkNatT R, <-eq_toWkNat_toWkNatT R']
 
-instance WkNatT.instSubsingleton {ρ n k}: Subsingleton (WkNatT ρ n k) where
+instance {ρ n k}: Subsingleton (WkNatT ρ n k) where
   allEq := WkNatT.uniq
 
 def WkNatT.app {ρ m n} (R: WkNatT ρ m n) (k: Fin n): Fin m
@@ -433,6 +445,29 @@ theorem WkList.get_eq {A} {ρ} {Γ Δ: List A}
   | lift _ R, ⟨n + 1, Hn⟩ => R.get_eq ⟨_, Nat.lt_of_succ_lt_succ Hn⟩
   | step _ R, _ => R.get_eq _
 
+theorem WkList.lift_head_eq {A} {ρ} {Γ Δ: List A}
+  (x y) (R: WkList (liftWk ρ) (x::Γ) (y::Δ))
+  : x = y
+  := R.get_eq ⟨0, by simp⟩
+
+theorem WkList.lift_rest {A} {ρ} {Γ Δ: List A}
+  {x y}: WkList (liftWk ρ) (x::Γ) (y::Δ) -> WkList ρ Γ Δ
+  := by
+    generalize H: liftWk ρ = ρ'
+    intro R
+    cases R with
+    | lift R => rw [liftWk_inj H]; assumption
+    | step R => exact (liftWk_ne_stepWk _ _ H).elim
+
+theorem WkList.step_rest {A} {ρ} {Γ Δ: List A}
+  {x}: WkList (stepWk ρ) (x::Γ) (Δ) -> WkList ρ Γ Δ
+  := by
+    generalize H: stepWk ρ = ρ'
+    intro R
+    cases R with
+    | lift R => exact (liftWk_ne_stepWk _ _ H.symm).elim
+    | step R => rw [stepWk_inj H]; assumption
+
 theorem WkList.getElem_eq {A} {ρ} {Γ Δ: List A} (R: WkList ρ Γ Δ)
   : ∀k: Fin Δ.length, Γ[R.toWkNat.app k] = Δ[k]
   := R.get_eq
@@ -450,19 +485,30 @@ theorem WkList.getElem?_eq {A} {ρ} {Γ Δ: List A} (R: WkList ρ Γ Δ)
 
 inductive WkListT {A}: (Nat -> Nat) -> List A -> List A -> Type
   | nil ρ: WkListT ρ [] []
-  | cons {ρ xs ys} x: WkListT ρ xs ys -> WkListT (liftWk ρ) (x::xs) (x::ys)
+  | lift {ρ xs ys} x: WkListT ρ xs ys -> WkListT (liftWk ρ) (x::xs) (x::ys)
   | step {ρ xs ys} x: WkListT ρ xs ys -> WkListT (stepWk ρ) (x::xs) ys
 
-def WkList.toWkNatT {A} {ρ: Nat -> Nat} {xs ys: List A}
-  : WkList ρ xs ys -> WkNat ρ xs.length ys.length
-  | nil _ => WkNat.nil _
-  | lift _ R => WkNat.lift (toWkNat R)
-  | step _ R => WkNat.step (toWkNat R)
+--TODO: WkListT Subsingleton
+
+def WkList.toWkNatT {A} {ρ: Nat -> Nat} {xs ys: List A} (R: WkList ρ xs ys)
+  : WkNatT ρ xs.length ys.length := R.toWkNat.toWkNatT
+
+def WkList.toWkListT_helper {A} {ρ: Nat -> Nat}
+  : {xs ys: List A} -> WkList ρ xs ys
+    -> WkNatT ρ xs.length ys.length -> WkListT ρ xs ys
+  | [], [], _, WkNatT.nil _ => WkListT.nil _
+  | _::_, _::_, R, WkNatT.lift Rn =>
+    R.lift_head_eq ▸ WkListT.lift _ (toWkListT_helper R.lift_rest Rn)
+  | _::_, _, R, WkNatT.step Rn => WkListT.step _ (toWkListT_helper R.step_rest Rn)
+
+def WkList.toWkListT {A} {ρ: Nat -> Nat} {xs ys: List A} (R: WkList ρ xs ys)
+  : WkListT ρ xs ys
+  := R.toWkListT_helper R.toWkNatT
 
 theorem WkListT.toWkList {A} {ρ: Nat -> Nat} {xs ys: List A}
   : WkListT ρ xs ys -> WkList ρ xs ys
   | nil _ => WkList.nil _
-  | cons _ R => WkList.lift _ (toWkList R)
+  | lift _ R => WkList.lift _ (toWkList R)
   | step _ R => WkList.step _ (toWkList R)
 
 inductive ListWk {A}: List A -> List A -> Type
