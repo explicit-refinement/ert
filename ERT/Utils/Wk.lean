@@ -414,6 +414,13 @@ inductive WkList {A}: (Nat -> Nat) -> List A -> List A -> Prop
   | lift {ρ xs ys} x: WkList ρ xs ys -> WkList (liftWk ρ) (x::xs) (x::ys)
   | step {ρ xs ys} x: WkList ρ xs ys -> WkList (stepWk ρ) (x::xs) ys
 
+def WkList.id {A}: (Γ: List A) -> WkList id Γ Γ
+  | [] => nil _
+  | x::Γ => liftWk_id ▸ lift x (id Γ)
+
+def WkList.wk1 {A} (x: A) (Γ: List A): WkList (stepWk _root_.id) (x::Γ) Γ
+  := (id Γ).step x
+
 def WkList.toWkNat {A} {ρ: Nat -> Nat} {xs ys: List A}
   : WkList ρ xs ys -> WkNat ρ xs.length ys.length
   | nil _ => WkNat.nil _
@@ -494,7 +501,7 @@ inductive At {A}: List A -> ℕ -> A -> Prop
 theorem At.head_eq: At (y::Γ) 0 x -> x = y
   | At.head _ _ => rfl
 
-theorem At.to_tail: At (x::Γ) (n + 1) x -> At Γ n x
+theorem At.to_tail: At (x::Γ) (n + 1) y -> At Γ n y
   | At.tail _ R => R
 
 theorem At.wk {ρ Γ Δ}: WkList ρ Γ Δ -> At Δ n x -> At Γ (ρ n) x

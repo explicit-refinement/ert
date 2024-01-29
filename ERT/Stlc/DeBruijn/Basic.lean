@@ -46,4 +46,28 @@ def HasTy.wk {α} [τ: TypedConst α] {ρ} {Γ Δ: Ctx τ.Base} {t: Term α} {A:
   | cnst a => cnst a
   | abort A => abort A
 
--- TODO: Subst
+structure Subst.Valid {α} [τ: TypedConst α] (σ: Subst α) (Γ Δ: Ctx τ.Base) where
+    var: ∀{n A}, At Δ n A -> HasTy Γ (σ n) A
+
+def Subst.Valid.lift {α} [τ: TypedConst α] {σ: Subst α} {Γ Δ: Ctx τ.Base}
+    (A: Ty τ.Base) (V: Subst.Valid σ Γ Δ): Subst.Valid σ.lift (A :: Γ) (A :: Δ)
+    where
+    var := λ{n} => match n with
+    | 0 => λR => HasTy.var (R.head_eq ▸ At.head _ _)
+    | _ + 1 => λR => (V.var R.to_tail).wk (WkList.wk1 _ _)
+
+def HasTy.subst {α} [τ: TypedConst α] {σ} {Γ Δ: Ctx τ.Base} {t: Term α} {A: Ty τ.Base}
+    (V: Subst.Valid σ Γ Δ): HasTy Δ t A -> HasTy Γ (t.subst σ) A
+    | var v => V.var v
+    | app s t => app (HasTy.subst V s) (HasTy.subst V t)
+    | lam t => lam (HasTy.subst (V.lift _) t)
+    | pair s t => pair (HasTy.subst V s) (HasTy.subst V t)
+    | let1 s t => let1 (HasTy.subst V s) (HasTy.subst (V.lift _) t)
+    | let2 s t => let2 (HasTy.subst V s) (HasTy.subst ((V.lift _).lift _) t)
+    | case s t u => case (HasTy.subst V s)
+        (HasTy.subst (V.lift _) t)
+        (HasTy.subst (V.lift _) u)
+    | inl s => inl (HasTy.subst V s)
+    | inr s => inr (HasTy.subst V s)
+    | cnst a => cnst a
+    | abort A => abort A
