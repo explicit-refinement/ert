@@ -557,4 +557,11 @@ def Ix.wk: ListWk Γ Δ -> Ix Δ A -> Ix Γ A
 | ListWk.lift _A ρ, Ix.tail _ v
 | ListWk.step _ ρ, v => Ix.tail _ (wk ρ v)
 
+def AtT.toIx: AtT Γ n x -> Ix Γ x
+  | AtT.head _x _ => Ix.head _ _
+  | AtT.tail _ i => Ix.tail _ i.toIx
+
+def At.toIx: At Γ n x -> Ix Γ x
+  := AtT.toIx ∘ At.toAtT
+
 --TODO: Ord Ix, At, etc...
