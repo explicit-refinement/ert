@@ -95,3 +95,7 @@ def PER.pure_map {α} {r: α -> α -> Prop} (A: PER r) (T)
   := match local_pure_injective_or_constant T α with
     | Or.inl Hinj => PER.pure_map_inj A T Hinj
     | Or.inr Hconst => PER.pure_map_const A T Hconst
+
+def PSetoid.pure_map (T) [Monad T] [LawfulMonad T] {α} (A: PSetoid α): PSetoid (T α) where
+  r := Relation.PureMap A.r T
+  isper := PER.pure_map A.isper T
