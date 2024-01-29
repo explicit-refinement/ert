@@ -7,7 +7,11 @@ import ERT.Higher.Typed.Wk
 import ERT.Ghost.Basic
 
 import ERT.Stlc.Intrinsic.Basic
+import ERT.Stlc.Intrinsic.Erasure
+
 import ERT.Stlc.DeBruijn.Basic
+import ERT.Stlc.DeBruijn.Semantics
+import ERT.Stlc.DeBruijn.Reconstruction
 
 import ERT.PER.Basic
 import ERT.PER.Monad
