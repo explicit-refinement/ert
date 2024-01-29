@@ -11,10 +11,13 @@ theorem PER.refl_left (A: PER r) (Hab: r a b): r a a
 theorem PER.refl_right (A: PER r) (Hab: r a b): r b b
   := A.trans (A.symm Hab) Hab
 
-theorem PER.of_subsingleton [S: Subsingleton α] (r: α -> α -> Prop): PER r
+theorem PER.of_rel_subsingleton (r: α -> α -> Prop) (Hr: ∀{x y}, r x y -> x = y): PER r
   where
-  symm := λ{x y} Hxy => S.allEq x y ▸ S.allEq x y ▸ Hxy
-  trans := λ{_ y z} Hxy _ => S.allEq y z ▸ Hxy
+  symm Hxy := Hr Hxy ▸ Hr Hxy ▸ Hxy
+  trans Hxy Hyz := Hr Hxy ▸ Hyz
+
+theorem PER.of_subsingleton [S: Subsingleton α] (r: α -> α -> Prop): PER r
+  := PER.of_rel_subsingleton r (λ_ => S.allEq _ _)
 
 def PER.carrier {α} {r: α -> α -> Prop} (_: PER r)
   : Set α := λx: α => r x x
