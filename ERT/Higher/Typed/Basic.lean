@@ -99,6 +99,8 @@ inductive Term.HasType {α}: List (Var α) -> Term α -> Term α -> World -> Typ
     -> B.subst t.subst0 = B'
     -- -> IsMin pw rw aw
     -> HasType Γ (app s t) B' rw
+  --TODO: let1
+  --TODO: let2
 
 def Term.HasType.toGhost {α Γ} {a A: Term α} {w}
   : Term.HasType Γ a A w -> Term.HasType Γ a A ghost

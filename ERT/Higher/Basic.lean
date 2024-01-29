@@ -37,6 +37,8 @@ inductive Kind.le: Kind -> Kind -> Prop
   | ghost: le (type World.comp) (type World.ghost)
   | refl (k): le k k
 
+--TODO: use pi based formulation?
+
 inductive Term (α: Type)
   -- Variables
   | var (n: Nat)
@@ -61,6 +63,7 @@ inductive Term (α: Type)
   | lam (w: World) (A t: Term α)
   | app (s t: Term α)
   | pair (w: World) (s t: Term α)
+  | let1 (s t: Term α)
   | let2 (a e: Term α)
   | inj (b: Fin 2) (t: Term α)
   | case (e l r: Term α)
@@ -104,7 +107,7 @@ def Term.fv {α}: Term α -> ℕ
   | pi _ A B | sigma _ A B => A.fv.max B.fv.pred
   | coprod A B => A.fv.max B.fv
   | eq a b => a.fv.max b.fv
-  -- | let1 a e => a.fv.max e.fv.pred
+  | let1 a e => a.fv.max e.fv.pred
   | lam _ A t => A.fv.max t.fv.pred
   | app s t => s.fv.max t.fv
   | pair _ s t => s.fv.max t.fv
@@ -120,7 +123,7 @@ def Term.wk {α} (ρ: ℕ -> ℕ): Term α -> Term α
   | sigma k A B => sigma k (A.wk ρ) (B.wk (liftWk ρ))
   | coprod A B => coprod (A.wk ρ) (B.wk ρ)
   | eq a b => eq (a.wk ρ) (b.wk ρ)
-  -- | let1 a e => let1 (a.wk ρ) (e.wk (liftWk ρ))
+  | let1 a e => let1 (a.wk ρ) (e.wk (liftWk ρ))
   | lam k A t => lam k (A.wk ρ) (t.wk (liftWk ρ))
   | app s t => app (s.wk ρ) (t.wk ρ)
   | pair k s t => pair k (s.wk ρ) (t.wk ρ)
@@ -241,7 +244,7 @@ def Term.subst {α} (σ: Subst α): Term α -> Term α
   | sigma k A B => sigma k (A.subst σ) (B.subst (σ.lift))
   | coprod A B => coprod (A.subst σ) (B.subst σ)
   | eq a b => eq (a.subst σ) (b.subst σ)
-  -- | let1 a e => let1 (a.subst σ) (e.subst (σ.lift))
+  | let1 a e => let1 (a.subst σ) (e.subst (σ.lift))
   | lam k A t => lam k (A.subst σ) (t.subst (σ.lift))
   | app s t => app (s.subst σ) (t.subst σ)
   | pair k s t => pair k (s.subst σ) (t.subst σ)

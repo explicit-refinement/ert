@@ -9,6 +9,7 @@ inductive Term (α: Type) [τ: TypedConst α]: Type
   | app (s t: Term α)
   | lam (A: Ty τ.Base) (t: Term α)
   | pair (s t: Term α)
+  | let1 (s t: Term α)
   | let2 (s t: Term α)
   | case (e l r: Term α)
   | inj (b: Fin 2) (t: Term α)
@@ -20,6 +21,7 @@ def Term.wk {α} [TypedConst α] (ρ: Nat -> Nat) : Term α -> Term α
   | app s t => app (wk ρ s) (wk ρ t)
   | lam A t => lam A (wk (liftWk ρ) t)
   | pair s t => pair (wk ρ s) (wk ρ t)
+  | let1 s t => let1 (wk ρ s) (wk (liftWk ρ) t)
   | let2 s t => let2 (wk ρ s) (wk (liftWk (liftWk ρ)) t)
   | case e l r => case (wk ρ e) (wk (liftWk ρ) l) (wk (liftWk ρ) r)
   | inj b t => inj b (wk ρ t)
@@ -54,6 +56,7 @@ def Term.fv {α} [TypedConst α]: Term α -> ℕ
   | lam _ t => t.fv.pred
   | app s t => s.fv.max t.fv
   | pair s t => s.fv.max t.fv
+  | let1 a e => a.fv.max e.fv.pred
   | let2 a e => a.fv.max e.fv.pred.pred
   | inj _ t => t.fv
   | case e l r => e.fv.max (l.fv.pred.max r.fv.pred)
@@ -148,6 +151,7 @@ def Term.subst {α} [TypedConst α] (σ: Subst α): Term α -> Term α
   | app s t => app (subst σ s) (subst σ t)
   | lam A t => lam A (subst σ.lift t)
   | pair s t => pair (subst σ s) (subst σ t)
+  | let1 a e => let1 (subst σ a) (subst σ.lift e)
   | let2 a e => let2 (subst σ a) (subst σ.lift.lift e)
   | inj b t => inj b (subst σ t)
   | case e l r => case (subst σ e) (subst σ.lift l) (subst σ.lift r)
