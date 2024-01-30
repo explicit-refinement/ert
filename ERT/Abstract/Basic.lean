@@ -8,6 +8,28 @@ class Syntax (α: Type u) where
   arity: α -> ℕ
   binding: (a: α) -> Fin (arity a) -> ℕ
 
+instance initialSyntax: Syntax Empty where
+  arity := λ_ => 0
+  binding := λ.
+
+instance treeSyntax: Syntax ℕ where
+  arity := id
+  binding := λ_ => 0
+
+instance terminalSyntax: Syntax (List ℕ) where
+  arity := List.length
+  binding ℓ i := ℓ.get i
+
+def Consts (α: Type u) := α
+
+class ConstSyntax (α: Type u) extends Syntax α where
+  zero_arity: ∀a: α, arity a = 0
+
+instance constSyntax {α}: ConstSyntax (Consts α) where
+  arity := λ_ => 0
+  binding := λ_ _ => 0
+  zero_arity _ := rfl
+
 open Syntax
 
 inductive Term (α: Type u) [Syntax α]: Type u
@@ -204,3 +226,72 @@ def Term.subst0 {α} [Syntax α] (t: Term α): Subst α
 def Term.alpha0 {α} [Syntax α] (t: Term α): Subst α
   | 0 => t
   | n => var n
+
+--TODO: closed terms
+--TODO: weakening, substitution do not affect closed terms
+
+structure SyntaxHom (α: Type u) (β: Type v) [Syntax α] [Syntax β] where
+  toFun: α -> β
+  map_arity': ∀a: α, arity (toFun a) = arity a
+  map_bindings': ∀a: α, ∀i: Fin (arity (toFun a)),
+    binding (toFun a) i = binding a (map_arity' a ▸ i)
+
+def SyntaxHom.id (α) [Syntax α]: SyntaxHom α α where
+  toFun := _root_.id
+  map_arity' := by simp
+  map_bindings' := by simp
+
+def SyntaxHom.comp {α β γ} [Syntax α] [Syntax β] [Syntax γ]
+  (f: SyntaxHom β γ) (g: SyntaxHom α β): SyntaxHom α γ
+  where
+  toFun := f.toFun ∘ g.toFun
+  map_arity' := by intros; simp only [map_arity', Function.comp_apply]
+  map_bindings' := by intros; simp [map_bindings', Function.comp_apply, Eq.rec_eq_cast]
+
+theorem SyntaxHom.ext {α β} [Syntax α] [Syntax β]
+  {f g: SyntaxHom α β}
+  (h: ∀a: α, f.toFun a = g.toFun a)
+  : f = g := by
+  cases f; cases g
+  simp only [SyntaxHom.mk.injEq]
+  apply funext
+  exact h
+
+theorem SyntaxHom.comp_id {α β} [Syntax α] [Syntax β] (f: SyntaxHom α β)
+  : f.comp (SyntaxHom.id α) = f := SyntaxHom.ext (by simp [id, comp])
+
+theorem SyntaxHom.id_comp {α β} [Syntax α] [Syntax β] (f: SyntaxHom α β)
+  : (SyntaxHom.id β).comp f = f := SyntaxHom.ext (by simp [id, comp])
+
+theorem SyntaxHom.comp_assoc {α β γ δ} [Syntax α] [Syntax β] [Syntax γ] [Syntax δ]
+  (f: SyntaxHom α β) (g: SyntaxHom β γ) (h: SyntaxHom γ δ)
+  : (h.comp g).comp f = h.comp (g.comp f) := SyntaxHom.ext (by simp [comp])
+
+-- TODO: category of syntax homs
+-- TODO: initial object
+-- TODO: is List ℕ the terminal object?
+-- TODO: coproducts?
+-- TODO: products? tensor products? other limits?
+
+class SyntaxHomClass (F) (α β: outParam (_)) [Syntax α] [Syntax β]
+  extends DFunLike F α (λ_ => β) where
+  map_arity: ∀f: F, ∀a: α, arity (f a) = arity a
+  map_bindings: ∀f: F, ∀a: α, ∀i: Fin (arity (f a)),
+    binding (f a) i = binding a (map_arity f a ▸ i)
+
+open SyntaxHomClass
+
+instance SyntaxHom.SyntaxHomClass {α β} [Syntax α] [Syntax β]: SyntaxHomClass (SyntaxHom α β) α β
+  where
+  coe := SyntaxHom.toFun
+  coe_injective' f g h := by cases f; cases g; congr
+  map_arity := SyntaxHom.map_arity'
+  map_bindings := SyntaxHom.map_bindings'
+
+def Term.relabel {F α β} [Syntax α] [Syntax β] [SyntaxHomClass F α β] (f: F)
+  : Term α -> Term β
+  | var n => var n
+  | tm a ts => tm (f a) (λ i => (ts (map_arity f a ▸ i)).relabel f)
+
+--TODO: relabeling preserves free variables, in part. maps closed terms to closed terms
+--TODO: relabeling is functorial
