@@ -488,8 +488,6 @@ inductive WkListT {A}: (Nat -> Nat) -> List A -> List A -> Type
   | lift {ρ xs ys} x: WkListT ρ xs ys -> WkListT (liftWk ρ) (x::xs) (x::ys)
   | step {ρ xs ys} x: WkListT ρ xs ys -> WkListT (stepWk ρ) (x::xs) ys
 
---TODO: WkListT Subsingleton
-
 def WkList.toWkNatT {A} {ρ: Nat -> Nat} {xs ys: List A} (R: WkList ρ xs ys)
   : WkNatT ρ xs.length ys.length := R.toWkNat.toWkNatT
 
@@ -505,11 +503,34 @@ def WkList.toWkListT {A} {ρ: Nat -> Nat} {xs ys: List A} (R: WkList ρ xs ys)
   : WkListT ρ xs ys
   := R.toWkListT_helper R.toWkNatT
 
+def WkList.toWkListT_eq {A} {ρ} {Γ Δ: List A}
+  : (R: WkList ρ Γ Δ) -> (R': WkListT ρ Γ Δ) -> R.toWkListT = R'
+  | _, WkListT.nil _ => rfl
+  | R, WkListT.lift _ R' => by
+    rw [toWkListT, toWkNatT]
+    rw [<-toWkListT_eq R.lift_rest R']
+    simp only [WkNat.toWkNatT, liftWk, Nat.add_eq, Nat.add_zero, dite_true]
+    rfl
+  | R, WkListT.step _ R' => by
+    rw [toWkListT, toWkNatT]
+    rw [<-toWkListT_eq R.step_rest R']
+    simp only [
+      stepWk, List.length_cons, WkNat.toWkNatT, Function.comp_apply,
+      Nat.succ_ne_zero, dite_false, toWkListT_helper]
+    rfl
+
 theorem WkListT.toWkList {A} {ρ: Nat -> Nat} {xs ys: List A}
   : WkListT ρ xs ys -> WkList ρ xs ys
   | nil _ => WkList.nil _
   | lift _ R => WkList.lift _ (toWkList R)
   | step _ R => WkList.step _ (toWkList R)
+
+theorem WkListT.uniq {A} {ρ: Nat -> Nat} {xs ys: List A}
+  (R R': WkListT ρ xs ys): R = R'
+  := (R.toWkList.toWkListT_eq R).symm.trans (R.toWkList.toWkListT_eq R')
+
+instance: Subsingleton (WkListT Γ n A) where
+  allEq := WkListT.uniq
 
 inductive ListWk {A}: List A -> List A -> Type
   | nil: ListWk [] []
@@ -582,6 +603,11 @@ def At.toAtT {α}: {Γ: List α} -> {n: ℕ} -> {x: α} -> At Γ n x -> AtT Γ n
 
 def AtT.wk {ρ Γ Δ} (R: WkList ρ Γ Δ) (i: AtT Δ n x): AtT Γ (ρ n) x
   := (i.toAt.wk R).toAtT
+
+def AtT.wk_t {ρ Γ Δ}: WkListT ρ Γ Δ -> AtT Δ n x -> AtT Γ (ρ n) x
+  | WkListT.lift _ R, AtT.head _ _ => AtT.head _ _
+  | WkListT.lift _ R, AtT.tail _ R'
+  | WkListT.step _ R, R' => AtT.tail _ (wk_t R R')
 
 inductive Ix {A}: List A -> A -> Type
   | head (x xs): Ix (x::xs) x
