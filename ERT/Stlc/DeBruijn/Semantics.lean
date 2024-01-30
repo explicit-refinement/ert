@@ -209,3 +209,15 @@ theorem Subst.Valid.den_comp {α} [τ: SemanticConst α] {ρ σ} {Γ Δ Ξ: Ctx 
   : (V.comp V').den G = V'.den (V.den G) := by
   funext ⟨k, Hk⟩
   simp [Subst.Valid.den, Subst.Valid.comp, HasTy.den_subst_app]
+
+theorem HasTy.subst0 {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {a: Term α} {A}
+  (H: HasTy Γ a A)
+  : Subst.Valid a.subst0 Γ (A::Γ)
+  | ⟨0, _⟩ => H
+  | ⟨n + 1, Hn⟩ => List.get_cons_succ.symm ▸ var ⟨n, Nat.lt_of_succ_lt_succ Hn⟩
+
+theorem HasTy.alpha0 {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {a: Term α} {A B}
+  (H: HasTy (A::Γ) a B)
+  : Subst.Valid a.alpha0 (A::Γ) (B::Γ)
+  | ⟨0, _⟩ => H
+  | ⟨_ + 1, _⟩ => HasTy.var _
