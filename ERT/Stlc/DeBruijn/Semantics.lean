@@ -137,7 +137,7 @@ def Subst.Valid.lift_den {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {
   | zero => rfl
   | succ n => simp [den, lift, Fin.cons, HasTy.den_wk_app, WkList.den_wk1]
 
-def HasTy.den_subst_app {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
+theorem HasTy.den_subst_app {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
   (V: Subst.Valid σ Γ Δ): (H: HasTy Δ a A) ->
     (G: Γ.den) -> (H.subst V).den G = H.den (V.den G)
   | HasTy.var _, _ => rfl
@@ -182,6 +182,20 @@ def HasTy.den_subst_app {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {a
   | HasTy.cnst c, G => rfl
   | HasTy.abort _, _ => rfl
 
-def HasTy.den_subst {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
+theorem HasTy.den_subst {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
   (V: Subst.Valid σ Γ Δ) (H: HasTy Δ a A): (H.subst V).den = H.den ∘ V.den := by
   funext G; apply HasTy.den_subst_app
+
+def _root_.WkList.toSubst {α} [τ: SemanticConst α] {ρ} {Γ Δ: Ctx τ.Base}
+  (R: WkList ρ Γ Δ): Subst.Valid (Subst.fromWk _ ρ) Γ Δ
+  := λk => R.get_eq k ▸ HasTy.var (R.toWkNat.app k)
+
+theorem _root_.WkList.toSubst_den {α} [τ: SemanticConst α] {ρ} {Γ Δ: Ctx τ.Base}
+  (R: WkList ρ Γ Δ) : R.toSubst.den = R.den := by
+  funext G ⟨k, Hk⟩
+  simp [Subst.Valid.den, WkList.den, HasTy.den, WkList.toSubst, HasTy.den_cast_app]
+
+theorem HasTy.den_wk_toSubst {α} [τ: SemanticConst α] {ρ}
+  {Γ Δ: Ctx τ.Base} {a: Term α} {A}
+  (R: WkList ρ Γ Δ) (H: HasTy Δ a A): (H.wk R).den = (H.subst R.toSubst).den := by
+  rw [HasTy.den_wk, HasTy.den_subst, WkList.toSubst_den]
