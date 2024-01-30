@@ -1,3 +1,5 @@
+import Mathlib.Data.Fin.Tuple.Basic
+
 import ERT.Stlc.DeBruijn.Syntax
 import ERT.Utils.Wk
 
@@ -7,7 +9,7 @@ open Term
 open Ty
 
 inductive HasTy {α} [τ: TypedConst α]: Ctx τ.Base -> Term α -> Ty τ.Base -> Type
-| var : At Γ n A -> HasTy Γ (var n) A
+| var : (k: Fin Γ.length) -> HasTy Γ (var k.val) (Γ.get k)
 | app : HasTy Γ s (fn A B)
     -> HasTy Γ t A
     -> HasTy Γ (app s t) B
@@ -32,7 +34,7 @@ inductive HasTy {α} [τ: TypedConst α]: Ctx τ.Base -> Term α -> Ty τ.Base -
 
 def HasTy.wk {α} [τ: TypedConst α] {ρ} {Γ Δ: Ctx τ.Base} {t: Term α} {A: Ty τ.Base}
   (R: WkList ρ Γ Δ): HasTy Δ t A -> HasTy Γ (t.wk ρ) A
-  | var v => var (v.wk R)
+  | var v => R.get_eq v ▸ var (R.toWkNat.app v)
   | app s t => app (HasTy.wk R s) (HasTy.wk R t)
   | lam t => lam (HasTy.wk (WkList.lift _ R) t)
   | pair s t => pair (HasTy.wk R s) (HasTy.wk R t)
@@ -46,19 +48,16 @@ def HasTy.wk {α} [τ: TypedConst α] {ρ} {Γ Δ: Ctx τ.Base} {t: Term α} {A:
   | cnst a => cnst a
   | abort A => abort A
 
-structure Subst.Valid {α} [τ: TypedConst α] (σ: Subst α) (Γ Δ: Ctx τ.Base) where
-    var: ∀{n A}, At Δ n A -> HasTy Γ (σ n) A
+def Subst.Valid {α} [τ: TypedConst α] (σ: Subst α) (Γ Δ: Ctx τ.Base)
+    := (k: Fin Δ.length) -> HasTy Γ (σ k.val) (Δ.get k)
 
 def Subst.Valid.lift {α} [τ: TypedConst α] {σ: Subst α} {Γ Δ: Ctx τ.Base}
     (A: Ty τ.Base) (V: Subst.Valid σ Γ Δ): Subst.Valid σ.lift (A :: Γ) (A :: Δ)
-    where
-    var := λ{n} => match n with
-    | 0 => λR => HasTy.var (R.head_eq ▸ At.head _ _)
-    | _ + 1 => λR => (V.var R.to_tail).wk (WkList.wk1 _ _)
+    := Fin.cons (HasTy.var ⟨0, by simp⟩) (λk => (V k).wk (WkList.wk1 _ _))
 
 def HasTy.subst {α} [τ: TypedConst α] {σ} {Γ Δ: Ctx τ.Base} {t: Term α} {A: Ty τ.Base}
     (V: Subst.Valid σ Γ Δ): HasTy Δ t A -> HasTy Γ (t.subst σ) A
-    | var v => V.var v
+    | var v => V v
     | app s t => app (HasTy.subst V s) (HasTy.subst V t)
     | lam t => lam (HasTy.subst (V.lift _) t)
     | pair s t => pair (HasTy.subst V s) (HasTy.subst V t)

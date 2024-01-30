@@ -21,18 +21,15 @@ def Ty.den_in {τ} [CoeSort τ Type] (M: Type -> Type): Ty τ -> Type
   | coprod A B => (A.den_in M) ⊕ (B.den_in M)
   | fn A B => (A.den_in M) -> M (B.den_in M)
 
-def Ctx.den_in {τ} [CoeSort τ Type] (M: Type -> Type): Ctx τ -> Type
-  | [] => Unit
-  | A::Γ => M (A.den_in M) × (den_in M Γ)
+def Ctx.den_in {τ} [CoeSort τ Type] (M: Type -> Type) (Γ: Ctx τ): Type
+  := (k: Fin Γ.length) -> M ((Γ.get k).den_in M)
 
-def Ctx.prod_den_in {τ} [CoeSort τ Type] (M: Type -> Type): Ctx τ -> Type
-  | [] => Unit
-  | A::Γ => (A.den_in M) × (prod_den_in M Γ)
+def Ctx.prod_den_in {τ} [CoeSort τ Type] (M: Type -> Type) (Γ: Ctx τ): Type
+  := (k: Fin Γ.length) -> ((Γ.get k).den_in M)
 
-def Ctx.pure_den_in {τ} [CoeSort τ Type] {M: Type -> Type} [Pure M]: {Γ: Ctx τ}
-  -> Γ.prod_den_in M -> Γ.den_in M
-  | [], _ => ()
-  | _::_, γ' => (pure γ'.1, pure_den_in γ'.2)
+def Ctx.pure_den_in {τ} [CoeSort τ Type] {M: Type -> Type} [Pure M] {Γ: Ctx τ}
+  (G: Γ.prod_den_in M): Γ.den_in M
+  := λk => pure (G k)
 
 class TypedConst (α: Type) :=
   (Base: Type)
