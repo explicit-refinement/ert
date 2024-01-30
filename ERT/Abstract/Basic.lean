@@ -88,11 +88,15 @@ def Subst.liftn_succ {α} [Syntax α] (n) (σ: Subst α)
             simp_arith
             simp_arith
 
-def Subst.liftn_eq_iterate_lift {α} [Syntax α] (n: ℕ) (σ: Subst α)
+def Subst.liftn_eq_iterate_lift_apply {α} [Syntax α] (n: ℕ) (σ: Subst α)
   : σ.liftn n = (Subst.lift^[n] σ) := by
   induction n with
   | zero => exact σ.liftn_zero
   | succ n I => simp only [Function.iterate_succ_apply', Subst.liftn_succ, *]
+def Subst.liftn_eq_iterate_lift (α) [Syntax α] (n: ℕ)
+  : Subst.liftn n = (@Subst.lift α _)^[n] := by
+  funext σ
+  rw [liftn_eq_iterate_lift_apply]
 
 def Subst.lift_zero {α} [Syntax α] (σ: Subst α): σ.lift 0 = Term.var 0 := rfl
 def Subst.lift_succ {α} [Syntax α] (σ: Subst α) (n): (σ.lift n.succ) = (σ n).wk Nat.succ := rfl
@@ -103,7 +107,13 @@ def Subst.iterate_lift_id (α) [Syntax α]: (n: ℕ) -> Subst.lift^[n] (id α) =
   | 0 => rfl
   | n + 1 => by simp [lift_id, iterate_lift_id α n]
 def Subst.liftn_id (α) [Syntax α] (n: ℕ): (id α).liftn n = id α :=
-  by rw [liftn_eq_iterate_lift, iterate_lift_id]
+  by rw [liftn_eq_iterate_lift_apply, iterate_lift_id]
+
+def Subst.liftn_add (α) [Syntax α] (n m: ℕ)
+  : Subst.liftn (m + n) = (@Subst.liftn α _ m) ∘ (@Subst.liftn α _ n)
+  := by simp [liftn_eq_iterate_lift, Function.iterate_add]
+def Subst.liftn_add_apply {α} [Syntax α] (n m: ℕ) (σ: Subst α): (σ.liftn n).liftn m = σ.liftn (m + n)
+  := by simp [liftn_add]
 
 def Term.subst {α} [Syntax α] (σ: Subst α): Term α -> Term α
   | var n => σ n
@@ -129,3 +139,68 @@ theorem Term.subst_wk {α} [Syntax α] (ρ: ℕ -> ℕ)
   : (t: Term α) -> t.subst (Subst.fromWk α ρ) = t.wk ρ
   | var n => rfl
   | tm a ts => by simp only [Term.subst, Term.wk, Subst.fromWk_liftn, subst_wk]
+
+theorem Term.subst_liftn {α} [Syntax α] (n: ℕ) (σ: Subst α)
+  :  (t: Term α) ->
+    (t.wk (liftnWk n Nat.succ)).subst (σ.liftn (n + 1))
+    = (t.subst (σ.liftn n)).wk (liftnWk n Nat.succ)
+  | var n => by
+    --TODO: how should this be factored?
+    simp only [wk, subst, liftnWk, Subst.liftn]
+    split
+    . split
+      . simp [wk, liftnWk, *]
+      . rename_i H C; exact (C (Nat.le_step H)).elim
+    . rename_i C
+      simp_arith only [ite_false, <-wk_comp]
+      apply congr
+      . apply congrArg
+        funext v
+        simp_arith [Function.comp_apply, Zero.zero, liftnWk]
+      . simp [Nat.succ_add, Nat.succ_sub_succ, Nat.add_sub_assoc]
+  | tm a ts => by
+    simp only [subst, wk, <-liftnWk_add_apply, Subst.liftn_add_apply]
+    simp only [<-subst_liftn]
+    rfl
+theorem Term.subst_iterate_lift {α} [Syntax α] (n: ℕ) (σ: Subst α) (t: Term α)
+  : (t.wk (liftWk^[n] Nat.succ)).subst (Subst.lift^[n + 1] σ)
+    = (t.subst (Subst.lift^[n] σ)).wk (liftWk^[n] Nat.succ)
+  := by simp only [<-Subst.liftn_eq_iterate_lift, <-liftnWk_eq_iterate_liftWk, subst_liftn]
+
+theorem Term.subst_lift {α} [Syntax α] (t: Term α) (σ: Subst α)
+  : (t.wk Nat.succ).subst (σ.lift) = (t.subst σ).wk Nat.succ := t.subst_iterate_lift 0 σ
+
+def Subst.comp {α} [Syntax α] (σ τ: Subst α): Subst α
+  | n => (τ n).subst σ
+
+theorem Subst.lift_comp {α} [Syntax α] (σ τ: Subst α): (σ.comp τ).lift = σ.lift.comp τ.lift := by
+  funext n
+  cases n with
+  | zero => rfl
+  | succ n => simp [lift, comp, Term.subst_lift]
+
+theorem Subst.iterate_lift_comp {α} [Syntax α]
+  : (n: ℕ) -> ∀σ τ: Subst α, Subst.lift^[n] (σ.comp τ) = (Subst.lift^[n] σ).comp (Subst.lift^[n] τ)
+  | 0, σ, τ => rfl
+  | n + 1, σ, τ => by simp [Subst.lift_comp, iterate_lift_comp n]
+theorem Subst.liftn_comp {α} [Syntax α] (n: ℕ) (σ τ: Subst α)
+  : (σ.comp τ).liftn n = (σ.liftn n).comp (τ.liftn n)
+  := by rw [liftn_eq_iterate_lift, iterate_lift_comp]
+
+theorem Term.subst_comp {α} [Syntax α] (σ τ: Subst α)
+  :  (t: Term α) -> t.subst (σ.comp τ) = (t.subst τ).subst σ
+  | var n => rfl
+  | tm a ts => by simp only [subst, Subst.liftn_comp, Term.subst_comp]
+
+-- TODO: comp_id
+-- TODO: comp_assoc
+-- ==> Monoid (Subst α)
+-- ==> monoid homomorphism {lift, liftn}
+
+def Term.subst0 {α} [Syntax α] (t: Term α): Subst α
+  | 0 => t
+  | n + 1 => var n
+
+def Term.alpha0 {α} [Syntax α] (t: Term α): Subst α
+  | 0 => t
+  | n => var n
