@@ -199,3 +199,13 @@ theorem HasTy.den_wk_toSubst {α} [τ: SemanticConst α] {ρ}
   {Γ Δ: Ctx τ.Base} {a: Term α} {A}
   (R: WkList ρ Γ Δ) (H: HasTy Δ a A): (H.wk R).den = (H.subst R.toSubst).den := by
   rw [HasTy.den_wk, HasTy.den_subst, WkList.toSubst_den]
+
+def Subst.Valid.comp {α} [τ: SemanticConst α] {ρ σ} {Γ Δ Ξ: Ctx τ.Base}
+  (V: Subst.Valid ρ Γ Δ) (V': Subst.Valid σ Δ Ξ): Subst.Valid (ρ.comp σ) Γ Ξ
+  := λk => (V' k).subst V
+
+theorem Subst.Valid.den_comp {α} [τ: SemanticConst α] {ρ σ} {Γ Δ Ξ: Ctx τ.Base}
+  (V: Subst.Valid ρ Γ Δ) (V': Subst.Valid σ Δ Ξ) (G: Γ.den)
+  : (V.comp V').den G = V'.den (V.den G) := by
+  funext ⟨k, Hk⟩
+  simp [Subst.Valid.den, Subst.Valid.comp, HasTy.den_subst_app]
