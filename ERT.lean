@@ -1,5 +1,7 @@
 import ERT.Utils.Wk
 
+import ERT.Abstract.Basic
+
 import ERT.Higher.Basic
 import ERT.Higher.Typed.Basic
 import ERT.Higher.Typed.Wk

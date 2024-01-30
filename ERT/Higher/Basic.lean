@@ -193,6 +193,7 @@ def Subst.liftn_zero {α} (σ: Subst α): σ.liftn 0 = σ := by
   split
   . rename_i H; cases H
   . exact (σ n).wk_id
+
 def Subst.liftn_succ {α} (n) (σ: Subst α): σ.liftn n.succ = (σ.liftn n).lift := by
   induction n with
   | zero =>
