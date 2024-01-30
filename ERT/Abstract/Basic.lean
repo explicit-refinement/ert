@@ -230,6 +230,55 @@ def Term.alpha0 {α} [Syntax α] (t: Term α): Subst α
 --TODO: closed terms
 --TODO: weakening, substitution do not affect closed terms
 
+--TODO: weakening preserving morphisms
+
+def Subst.pre_wk {α} [Syntax α] (ρ: ℕ -> ℕ) (σ: Subst α): Subst α
+  := σ ∘ ρ
+
+theorem Subst.pre_wk_id {α} [Syntax α] (σ: Subst α): σ.pre_wk _root_.id = σ
+  := by simp [pre_wk]
+theorem Subst.pre_wk_comp {α} [Syntax α] (ρ τ: ℕ -> ℕ) (σ: Subst α)
+  : (σ.pre_wk ρ).pre_wk τ = σ.pre_wk (ρ ∘ τ) := by simp [pre_wk, Function.comp.assoc]
+
+theorem Subst.pre_wk_eq_fromWk_comp {α} [Syntax α] (ρ: ℕ -> ℕ) (σ: Subst α)
+  : σ.pre_wk ρ = σ.comp (fromWk α ρ)
+  := by funext n; rfl
+
+def Subst.map_t {α β} [Syntax α] [Syntax β] (f: Term α -> Term β) (σ: Subst α): Subst β
+  := f ∘ σ
+
+theorem Subst.map_t_id {α} [Syntax α] (σ: Subst α): σ.map_t _root_.id = σ
+  := by simp [map_t]
+theorem Subst.map_t_comp {α β γ} [Syntax α] [Syntax β] [Syntax γ]
+  (f: Term α -> Term β) (g: Term β -> Term γ) (σ: Subst α)
+  : (σ.map_t f).map_t g = σ.map_t (g ∘ f) := by simp [map_t, Function.comp.assoc]
+
+theorem Subst.map_t_subst {α} [Syntax α] (ρ σ: Subst α): σ.map_t (Term.subst ρ) = ρ.comp σ
+  := by funext n; rfl
+
+abbrev Subst.dist {α β} [Syntax α] [Syntax β] (f: Term α -> Term β): Prop
+  := ∀σ: Subst α, ∀t: Term α, f (t.subst σ) = (f t).subst (σ.map_t f)
+
+theorem Subst.dist_id {α} [Syntax α]: Subst.dist (@_root_.id (Term α))
+  := by simp [dist, map_t_id]
+theorem Subst.dist_comp {α β γ} [Syntax α] [Syntax β] [Syntax γ]
+  {f: Term α -> Term β} {g: Term β -> Term γ}
+  (hf: Subst.dist f) (hg: Subst.dist g)
+  : Subst.dist (g ∘ f)
+  := by simp [dist, <-map_t_comp, hf, hg]
+
+def Subst.fromMap {α β} [Syntax α] [Syntax β] (f: Term α -> Term β): Subst β
+  := λn => f (Term.var n)
+
+theorem Subst.dist_wk {α β} [Syntax α] [Syntax β] {f: Term α -> Term β}
+  (Hf: Subst.dist f) (ρ: ℕ -> ℕ) (t: Term α): f (t.wk ρ) = (f t).subst ((fromMap f).pre_wk ρ) := by
+  rw [
+    pre_wk_eq_fromWk_comp,
+    <-Term.subst_wk,
+    Hf
+  ]
+  rfl
+
 structure SyntaxHom (α: Type u) (β: Type v) [Syntax α] [Syntax β] where
   toFun: α -> β
   map_arity': ∀a: α, arity (toFun a) = arity a
