@@ -52,10 +52,6 @@ theorem Term.wk_comp {α} [Syntax α] (ρ σ: ℕ -> ℕ)
   | var n => rfl
   | tm a ts => by simp only [Term.wk, liftnWk_comp, wk_comp]
 
-def Term.fv {α} [Syntax α]: (t: Term α) -> ℕ
-  | var n => n + 1
-  | tm a ts => Fin.foldr (arity a) (λi v => Nat.max v ((ts i).fv - binding a i)) 0
-
 def Subst (α: Type u) [Syntax α] := ℕ -> Term α
 
 def Subst.id (α) [Syntax α]: Subst α := Term.var
@@ -344,3 +340,24 @@ def Term.relabel {F α β} [Syntax α] [Syntax β] [SyntaxHomClass F α β] (f: 
 
 --TODO: relabeling preserves free variables, in part. maps closed terms to closed terms
 --TODO: relabeling is functorial
+
+def Term.fv {α} [Syntax α]: (t: Term α) -> ℕ
+  | var n => n + 1
+  | tm a ts => Fin.foldr (arity a) (λi v => Nat.max v ((ts i).fv - binding a i)) 0
+
+-- theorem Term.fv_wk_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> ℕ} (H: EqToN t.fv ρ τ): t.wk ρ = t.wk τ
+--   := match t with
+--   | var n => by simp [wk, H _ (Nat.lt.base n)]
+--   | tm a ts => by
+--     simp only [wk, fv]
+--     apply congrArg
+--     funext ⟨i, Hi⟩
+--     rw [fv_wk_eq (ts ⟨i, Hi⟩)]
+--     apply EqToN.le_sub _ (liftnWk_eqToN_add _ H)
+--     sorry
+
+structure FTerm (α: Type u) [Syntax α] (n: ℕ) where
+  val: Term α
+  fvLt: val.fv < n
+
+def FTerm.fv {α} [Syntax α] {n} (t: FTerm α n): Fin n := ⟨t.val.fv, t.fvLt⟩

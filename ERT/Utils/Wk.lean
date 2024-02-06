@@ -105,10 +105,10 @@ def liftWk_eqToN_pred {n ρ τ}: EqToN n.pred ρ τ -> EqToN n (liftWk ρ) (lift
   | 0 => liftWk_congr_eqToN
   | _ + 1 => liftWk_eqToN_succ
 
-def liftWk_iter_eqToN_add {n ρ τ}
+def liftWk_iterate_eqToN_add {n ρ τ}
   : (m: Nat) -> EqToN n ρ τ -> EqToN (n + m) (liftWk^[m] ρ) (liftWk^[m] τ)
   | 0, H => H
-  | m + 1, H => Function.iterate_succ' _ _ ▸ liftWk_eqToN_succ (liftWk_iter_eqToN_add m H)
+  | m + 1, H => Function.iterate_succ' _ _ ▸ liftWk_eqToN_succ (liftWk_iterate_eqToN_add m H)
 
 /-
 Nicer/more efficient definitions for iterated stepping
@@ -206,6 +206,9 @@ theorem liftnWk_id (n): liftnWk n id = id := by
   rw [liftnWk_eq_iterate_liftWk, iterate_liftWk_id]
 theorem liftnWk_comp (n ρ σ): liftnWk n (ρ ∘ σ) = liftnWk n ρ ∘ liftnWk n σ := by
   rw [liftnWk_eq_iterate_liftWk, iterate_liftWk_comp]
+
+def liftnWk_eqToN_add {n ρ τ} (m: Nat) (H: EqToN n ρ τ): EqToN (n + m) (liftnWk m ρ) (liftnWk m τ)
+  := liftnWk_eq_iterate_liftWk ▸ liftWk_iterate_eqToN_add m H
 
 /-
 Modifying weakenings
