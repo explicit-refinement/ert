@@ -1,6 +1,7 @@
 import Mathlib.Data.Fin.Tuple.Basic
 
 import ERT.Utils.Wk
+import ERT.Utils.Tuple
 
 namespace Abstract
 
@@ -343,18 +344,77 @@ def Term.relabel {F α β} [Syntax α] [Syntax β] [SyntaxHomClass F α β] (f: 
 
 def Term.fv {α} [Syntax α]: (t: Term α) -> ℕ
   | var n => n + 1
-  | tm a ts => Fin.foldr (arity a) (λi v => Nat.max v ((ts i).fv - binding a i)) 0
+  | tm a ts => Tuple.foldl Nat.max 0 ((λi => fv (ts i)  + binding a i))
 
--- theorem Term.fv_wk_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> ℕ} (H: EqToN t.fv ρ τ): t.wk ρ = t.wk τ
---   := match t with
---   | var n => by simp [wk, H _ (Nat.lt.base n)]
---   | tm a ts => by
---     simp only [wk, fv]
---     apply congrArg
---     funext ⟨i, Hi⟩
---     rw [fv_wk_eq (ts ⟨i, Hi⟩)]
---     apply EqToN.le_sub _ (liftnWk_eqToN_add _ H)
---     sorry
+def Term.fv_tm {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α)
+  : fv (tm a ts) = Tuple.foldl Nat.max 0 ((fv ∘ ts) + binding a)
+  := rfl
+
+def Term.fv_tm_ith {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α) (i: Fin (arity a))
+  : fv (ts i) + binding a i ≤ fv (tm a ts)
+  := Tuple.nat_max_le_ith 0 ((fv ∘ ts) + binding a) i
+
+def Term.fv_tm_ith' {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α) (i: Fin (arity a))
+  : fv (ts i) ≤ fv (tm a ts)
+  := le_trans (Nat.le_add_right _ _) (fv_tm_ith a ts i)
+
+theorem Term.fv_wk_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> ℕ} (H: EqToN t.fv ρ τ): t.wk ρ = t.wk τ
+  := match t with
+  | var n => by simp [wk, H _ (Nat.lt.base n)]
+  | tm a ts => by
+    simp only [wk, fv]
+    apply congrArg
+    funext ⟨i, Hi⟩
+    rw [fv_wk_eq (ts ⟨i, Hi⟩)]
+    apply EqToN.le_sub _ (liftnWk_eqToN_add _ H)
+    apply le_trans
+    apply fv_tm_ith'
+    simp_arith
+
+theorem Term.wk_closed_eq {α} [Syntax α] (t: Term α) (H: t.fv = 0) (ρ τ: ℕ -> ℕ)
+  : t.wk ρ = t.wk τ
+  := t.fv_wk_eq (H ▸ EqToN.zero_app ρ τ)
+theorem Term.wk_closed {α} [Syntax α] (t: Term α) (H: t.fv = 0) (ρ: ℕ -> ℕ)
+  : t.wk ρ = t
+  := (t.wk_closed_eq H ρ id).trans (t.wk_id)
+
+theorem Subst.lift_eqToN_succ {α} [Syntax α] {σ τ: Subst α} {n} (H: EqToN n σ τ)
+  : EqToN n.succ σ.lift τ.lift
+  | 0, _ => rfl
+  | m + 1, Hm => congrArg _ (H m (Nat.lt_of_succ_lt_succ Hm))
+
+theorem Subst.lift_congr_eqToN {α} [Syntax α] {σ τ: Subst α} {n} (H: EqToN n σ τ)
+  : EqToN n σ.lift τ.lift := (lift_eqToN_succ H).succ_sub
+
+theorem Subst.lift_eqToN_pred {α} [Syntax α] {σ τ: Subst α} {n}
+  : EqToN n.pred σ τ -> EqToN n σ.lift τ.lift :=
+  match n with | 0 => lift_congr_eqToN | _ + 1 => lift_eqToN_succ
+
+theorem Subst.lift_iterate_eqToN_add {α} [Syntax α] {σ τ: Subst α} {n}
+  (H: EqToN n σ τ): (m: ℕ) -> EqToN (n + m) (Subst.lift^[m] σ) (Subst.lift^[m] τ)
+  | 0 => H
+  | m + 1 => by
+    have H := lift_eqToN_succ (lift_iterate_eqToN_add H m)
+    simp only [Function.iterate_succ_apply', <-Nat.add_assoc]
+    exact H
+
+theorem Subst.liftn_eqToN_add {α} [Syntax α] {σ τ: Subst α} {n}
+  (H: EqToN n σ τ) (m: ℕ): EqToN (n + m) (σ.liftn m) (τ.liftn m)
+  := by rw [Subst.liftn_eq_iterate_lift]; apply lift_iterate_eqToN_add H
+
+theorem Term.fv_subst_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> Term α} (H: EqToN t.fv ρ τ)
+  : t.subst ρ = t.subst τ
+  := match t with
+  | var n => by simp [subst, H _ (Nat.lt.base n)]
+  | tm a ts => by
+    simp only [subst, fv]
+    apply congrArg
+    funext ⟨i, Hi⟩
+    rw [fv_subst_eq (ts ⟨i, Hi⟩)]
+    apply EqToN.le_sub _ (Subst.liftn_eqToN_add H _)
+    apply le_trans
+    apply fv_tm_ith'
+    simp_arith
 
 structure FTerm (α: Type u) [Syntax α] (n: ℕ) where
   val: Term α
