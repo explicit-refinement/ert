@@ -10,15 +10,15 @@ open World
 --   | ghost_right (w): IsMin ghost comp w
 --   | comp: IsMin comp comp comp
 
-inductive Term.IsSort {α}: Term α -> World -> Type
+inductive Term.IsSort: Term -> World -> Type
   | prop: Term.IsSort prop ghost
   | type (w): Term.IsSort type w
 
-def Term.IsSort.toGhost {α K w}: @Term.IsSort α K w -> Term.IsSort K ghost
+def Term.IsSort.toGhost {K w}: @Term.IsSort K w -> Term.IsSort K ghost
   | prop => prop
   | type _ => type ghost
 
-inductive Term.PiType {α}: World -> Term α -> Term α -> Term α -> World -> Type
+inductive Term.PiType: World -> Term -> Term -> Term -> World -> Type
   | pi (w): PiType comp type type type w
   | inter (w): PiType ghost type type type w
   | checked: PiType comp type prop prop ghost
@@ -26,7 +26,7 @@ inductive Term.PiType {α}: World -> Term α -> Term α -> Term α -> World -> T
   | assume (w): PiType ghost prop type type w
   | implies: PiType ghost prop prop prop ghost
 
-def Term.PiType.toGhost {α w} {KA KB KC: Term α} {rw}
+def Term.PiType.toGhost {w} {KA KB KC: Term} {rw}
   : Term.PiType w KA KB KC rw -> Term.PiType w KA KB KC ghost
   | pi _ => pi ghost
   | inter _ => inter ghost
@@ -52,7 +52,7 @@ def Term.PiType.toGhost {α w} {KA KB KC: Term α} {rw}
 --   | valid _ => valid ghost
 --   | and => and
 
-inductive Term.HasType {α}: List (Var α) -> Term α -> Term α -> World -> Type
+inductive Term.HasType: List Var -> Term -> Term -> World -> Type
   -- Variables
   | var {Γ n A KA w}: HasVar Γ n A w
     -> HasType Γ A KA w -> IsSort KA w
@@ -102,7 +102,7 @@ inductive Term.HasType {α}: List (Var α) -> Term α -> Term α -> World -> Typ
   --TODO: let1
   --TODO: let2
 
-def Term.HasType.toGhost {α Γ} {a A: Term α} {w}
+def Term.HasType.toGhost {Γ} {a A: Term} {w}
   : Term.HasType Γ a A w -> Term.HasType Γ a A ghost
   | var Hv HA HK => var Hv.toGhost HA.toGhost HK.toGhost
   | pi HA HKA HB HKB => pi HA HKA HB.toGhost HKB
@@ -115,23 +115,23 @@ def Term.HasType.toGhost {α Γ} {a A: Term α} {w}
   | lam HA HKA Ht HB => lam HA HKA Ht.toGhost HB
   | app Hs Ht E => app Hs.toGhost Ht E -- (IsMin.ghost_left _ _)
 
-inductive Term.IsKind {α}: List (Var α) -> Term α -> World -> Type
+inductive Term.IsKind: List Var -> Term -> World -> Type
   | meta (Γ w): IsKind Γ type w
   | sort {Γ A K w}: IsSort K w -> HasType Γ A K w -> IsKind Γ A w
 
-abbrev Term.IsKind.type {α Γ A w} (H: @HasType α Γ A type w): IsKind Γ A w :=
+abbrev Term.IsKind.type {Γ A w} (H: @HasType Γ A type w): IsKind Γ A w :=
   IsKind.sort (IsSort.type _) H
 
 -- abbrev Term.IsKind.prop {α Γ A w} (H: @HasType α Γ A prop w): IsKind Γ A w :=
 --   IsKind.sort IsSort.prop H
 
-def Term.IsKind.kindSort {α Γ K w w'}: @IsKind α Γ K w -> IsSort K w' -> IsSort K w
+def Term.IsKind.kindSort {Γ K w w'}: @IsKind Γ K w -> IsSort K w' -> IsSort K w
   | _, IsSort.type _ => IsSort.type _
   | IsKind.sort _ H, IsSort.prop =>
     have H': w = ghost := by cases H; rfl;
     H' ▸ IsSort.prop
 
-def Term.IsSort.toKind {α K w} (Γ): @IsSort α K w -> Term.IsKind Γ K w
+def Term.IsSort.toKind {K w} (Γ): @IsSort K w -> Term.IsKind Γ K w
   | type _ => IsKind.meta _ _
   | prop => IsKind.sort (IsSort.type _) (HasType.prop _)
 
