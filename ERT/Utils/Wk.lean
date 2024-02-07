@@ -442,6 +442,38 @@ def WkNatT.toNatWk {ρ m n}: WkNatT ρ m n -> NatWk m n
 
 theorem NatWk.is_wk {m n} (ρ: NatWk m n): WkNat ρ.toFn m n := ρ.toWkNat.toWkNat
 
+structure WkFin (ρ: ℕ -> ℕ) (n: ℕ) (m: ℕ): Prop where
+  bounded: ∀i: ℕ, i < n -> ρ i < m
+  mono: ∀i: ℕ, i < n -> ∀j: ℕ, j < i -> ρ j < ρ i
+
+theorem WkFin.id_ext {n m: ℕ} (Hnm: n ≤ m): WkFin id n m where
+  bounded := λ_ H => Nat.lt_of_lt_of_le H Hnm
+  mono := λ_ _ _ H => H
+
+theorem WkFin.id (n: ℕ): WkFin id n n where
+  bounded := λ_ H => H
+  mono := λ_ _ _ H => H
+
+--TODO: lift
+
+--TODO: liftn
+
+--TODO: step
+
+--TODO: comp
+
+--TODO: WkNat <==> WkFin?
+
+--TODO: app on Fin
+
+--TODO: app on Fin2
+
+-- theorem WkFin.le {ρ n m}: WkFin ρ n m -> n ≤ m := sorry
+
+--TODO: tuple weakening, based on WkFin as WkList is based on WkNat...
+
+--TODO: factor into files...
+
 inductive WkList {A}: (Nat -> Nat) -> List A -> List A -> Prop
   | nil ρ: WkList ρ [] []
   | lift {ρ xs ys} x: WkList ρ xs ys -> WkList (liftWk ρ) (x::xs) (x::ys)
