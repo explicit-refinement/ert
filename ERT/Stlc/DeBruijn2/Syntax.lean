@@ -2,21 +2,33 @@ import ERT.Stlc.Basic
 import ERT.Utils.Wk
 import Mathlib.Order.MinMax
 
-namespace Stlc.DeBruijn
+namespace Stlc.DeBruijn2
 
-inductive Term (α: Type) [τ: TypedConst α]: Type
+inductive BaseTy
+| unit
+| nat
+
+instance: Semantic BaseTy where
+  coe
+  | BaseTy.unit => Unit
+  | BaseTy.nat => Nat
+  Effect := Option
+  isMonad := inferInstance
+  isLawful := inferInstance
+  abort := @none
+
+inductive Term: Type
   | var (n: Nat)
-  | app (s t: Term α)
-  | lam (A: Ty τ.Base) (t: Term α)
-  | pair (s t: Term α)
-  | let1 (s t: Term α)
-  | let2 (s t: Term α)
-  | case (e l r: Term α)
-  | inj (b: Fin 2) (t: Term α)
-  | cnst (a: α)
-  | abort (A: Ty τ.Base)
+  | app (s t: Term)
+  | lam (A: Ty BaseTy) (t: Term)
+  | pair (s t: Term)
+  | let1 (s t: Term)
+  | let2 (s t: Term)
+  | case (e l r: Term)
+  | inj (b: Fin 2) (t: Term)
+  | abort (A: Ty BaseTy)
 
-def Term.wk {α} [TypedConst α] (ρ: Nat -> Nat) : Term α -> Term α
+def Term.wk (ρ: Nat -> Nat) : Term -> Term
   | var n => var (ρ n)
   | app s t => app (wk ρ s) (wk ρ t)
   | lam A t => lam A (wk (liftWk ρ) t)
@@ -27,31 +39,31 @@ def Term.wk {α} [TypedConst α] (ρ: Nat -> Nat) : Term α -> Term α
   | inj b t => inj b (wk ρ t)
   | t => t
 
-theorem Term.wk_id {α} [TypedConst α] (t: Term α): t.wk id = t := by
+theorem Term.wk_id (t: Term): t.wk id = t := by
   induction t with
   | var _ => rfl
   | _ => simp only [Term.wk, liftWk_id, *]
 
-theorem Term.wk_id' {α} [TypedConst α] (t: Term α): t.wk (λx => x) = t := t.wk_id
+theorem Term.wk_id' (t: Term): t.wk (λx => x) = t := t.wk_id
 
-theorem Term.wk_comp {α} [TypedConst α] (ρ σ: ℕ -> ℕ) (t: Term α):
+theorem Term.wk_comp (ρ σ: ℕ -> ℕ) (t: Term):
   t.wk (ρ ∘ σ) = (t.wk σ).wk ρ := by
   induction t generalizing ρ σ with
   | var _ => rfl
   | _ => simp only [Term.wk, liftWk_comp, *]
 
-theorem Term.wk_lift_succ {α} [TypedConst α] (ρ: ℕ -> ℕ) (t: Term α):
+theorem Term.wk_lift_succ (ρ: ℕ -> ℕ) (t: Term):
   (t.wk Nat.succ).wk (liftWk ρ) = (t.wk ρ).wk Nat.succ := by
   rw [<-Term.wk_comp]
   rw [liftWk_comp_succ]
   rw [Term.wk_comp]
 
-theorem Term.wk_step_succ {α} [TypedConst α] (ρ: ℕ -> ℕ) (t: Term α):
+theorem Term.wk_step_succ (ρ: ℕ -> ℕ) (t: Term):
   (t.wk ρ).wk Nat.succ = t.wk (stepWk ρ) := by
   rw [<-Term.wk_comp]
   rfl
 
-def Term.fv {α} [TypedConst α]: Term α -> ℕ
+def Term.fv: Term -> ℕ
   | var n => n.succ
   | lam _ t => t.fv.pred
   | app s t => s.fv.max t.fv
@@ -62,7 +74,7 @@ def Term.fv {α} [TypedConst α]: Term α -> ℕ
   | case e l r => e.fv.max (l.fv.pred.max r.fv.pred)
   | _ => 0
 
-theorem Term.wk_fv {α ρ σ} [TypedConst α] (t: Term α) (H: EqToN t.fv ρ σ): t.wk ρ = t.wk σ := by
+theorem Term.wk_fv {ρ σ} (t: Term) (H: EqToN t.fv ρ σ): t.wk ρ = t.wk σ := by
   induction t generalizing ρ σ with
   | var n => exact congrArg _ (H n (Nat.le_refl n.succ))
   | _ =>
@@ -78,27 +90,27 @@ theorem Term.wk_fv {α ρ σ} [TypedConst α] (t: Term α) (H: EqToN t.fv ρ σ)
         simp [le_max_iff, le_refl, true_or]
       }
 
-theorem Term.wk_closed {α ρ} [TypedConst α] (t: Term α) (H: t.fv = 0): t.wk ρ = t :=
+theorem Term.wk_closed {ρ} (t: Term) (H: t.fv = 0): t.wk ρ = t :=
   (t.wk_fv (H.symm ▸ (EqToN.zero_app _ id))).trans t.wk_id
 
-def Subst (α: Type) [TypedConst α] := ℕ -> Term α
+def Subst := ℕ -> Term
 
-def Subst.id (α: Type) [TypedConst α]: Subst α := Term.var
+def Subst.id: Subst := Term.var
 
-def Subst.lift {α} [TypedConst α] (σ: Subst α): Subst α
+def Subst.lift (σ: Subst): Subst
   | 0 => Term.var 0
   | n+1 => (σ n).wk Nat.succ
 
-def Subst.liftn {α} [TypedConst α] (n: ℕ) (σ: Subst α): Subst α
+def Subst.liftn (n: ℕ) (σ: Subst): Subst
   | m => if m < n then Term.var m else (σ (m - n)).wk (λv => v + n)
 
-def Subst.liftn_zero {α} [TypedConst α] (σ: Subst α): σ.liftn 0 = σ := by
+def Subst.liftn_zero (σ: Subst): σ.liftn 0 = σ := by
   funext n
   simp only [liftn]
   split
   . rename_i H; cases H
   . exact (σ n).wk_id
-def Subst.liftn_succ {α} [TypedConst α] (n) (σ: Subst α)
+def Subst.liftn_succ (n) (σ: Subst)
   : σ.liftn n.succ = (σ.liftn n).lift := by
   induction n with
   | zero =>
@@ -134,19 +146,19 @@ def Subst.liftn_succ {α} [TypedConst α] (n) (σ: Subst α)
             simp_arith
             simp_arith
 
-def Subst.liftn_eq_iterate_lift {α} [TypedConst α] (n: ℕ) (σ: Subst α)
+def Subst.liftn_eq_iterate_lift (n: ℕ) (σ: Subst)
   : σ.liftn n = (Subst.lift^[n] σ) := by
   induction n with
   | zero => exact σ.liftn_zero
   | succ n I => simp only [Function.iterate_succ_apply', Subst.liftn_succ, *]
 
-def Subst.lift_zero {α} [TypedConst α] (σ: Subst α): σ.lift 0 = Term.var 0 := rfl
-def Subst.lift_succ {α} [TypedConst α] (σ: Subst α) (n)
+def Subst.lift_zero (σ: Subst): σ.lift 0 = Term.var 0 := rfl
+def Subst.lift_succ (σ: Subst) (n)
   : (σ.lift n.succ) = (σ n).wk Nat.succ := rfl
 
-def Subst.lift_id (α) [TypedConst α]: (id α).lift = id α := by funext n; cases n <;> rfl
+def Subst.lift_id: id.lift = id := by funext n; cases n <;> rfl
 
-def Term.subst {α} [TypedConst α] (σ: Subst α): Term α -> Term α
+def Term.subst (σ: Subst): Term -> Term
   | var n => σ n
   | app s t => app (subst σ s) (subst σ t)
   | lam A t => lam A (subst σ.lift t)
@@ -157,25 +169,25 @@ def Term.subst {α} [TypedConst α] (σ: Subst α): Term α -> Term α
   | case e l r => case (subst σ e) (subst σ.lift l) (subst σ.lift r)
   | t => t
 
-def Term.subst_id {α} [TypedConst α] (t: Term α): t.subst (Subst.id α) = t := by
+def Term.subst_id (t: Term): t.subst (Subst.id) = t := by
   induction t with
   | var _ => rfl
   | _ => simp only [Term.subst, Subst.lift_id, *]
 
 
 
-def Subst.fromWk (α) [TypedConst α] (ρ: ℕ -> ℕ): Subst α := Term.var ∘ ρ
+def Subst.fromWk (ρ: ℕ -> ℕ): Subst := Term.var ∘ ρ
 
-theorem Subst.fromWk_lift (α) [TypedConst α] (ρ): (fromWk α ρ).lift = fromWk α (liftWk ρ) := by
+theorem Subst.fromWk_lift (ρ): (fromWk ρ).lift = fromWk (liftWk ρ) := by
   funext n; cases n <;> rfl
 
-theorem Term.subst_wk {α} [TypedConst α] (ρ: ℕ -> ℕ) (t: Term α)
-  : t.subst (Subst.fromWk α ρ) = t.wk ρ := by
+theorem Term.subst_wk (ρ: ℕ -> ℕ) (t: Term)
+  : t.subst (Subst.fromWk ρ) = t.wk ρ := by
   induction t generalizing ρ with
   | var n => rfl
   | _ => simp only [Term.subst, Term.wk, Subst.fromWk_lift, *]
 
-theorem Term.subst_liftWkn {α} [TypedConst α] (t: Term α) (σ: Subst α) (n)
+theorem Term.subst_liftWkn (t: Term) (σ: Subst) (n)
   : (t.wk (liftWk^[n] Nat.succ)).subst (Subst.lift^[n + 1] σ)
   = (t.subst (Subst.lift^[n] σ)).wk (liftWk^[n] Nat.succ) := by
   induction t generalizing σ n with
@@ -198,37 +210,37 @@ theorem Term.subst_liftWkn {α} [TypedConst α] (t: Term α) (σ: Subst α) (n)
       . simp [Nat.succ_add, Nat.succ_sub_succ, Nat.add_sub_assoc]
   | _ => simp only [Term.subst, Term.wk, <-Function.iterate_succ_apply', *]
 
-theorem Term.subst_lift {α} [TypedConst α] (t: Term α) (σ: Subst α)
+theorem Term.subst_lift (t: Term) (σ: Subst)
   : (t.wk Nat.succ).subst (σ.lift) = (t.subst σ).wk Nat.succ := t.subst_liftWkn σ 0
 
-def Subst.comp {α} [TypedConst α] (σ τ: Subst α): Subst α
+def Subst.comp (σ τ: Subst): Subst
   | n => (τ n).subst σ
 
-theorem Subst.lift_comp {α} [TypedConst α] (σ τ: Subst α): (σ.comp τ).lift = σ.lift.comp τ.lift := by
+theorem Subst.lift_comp (σ τ: Subst): (σ.comp τ).lift = σ.lift.comp τ.lift := by
   funext n
   cases n with
   | zero => rfl
   | succ n => simp [lift, comp, Term.subst_lift]
 
-theorem Term.subst_comp {α} [TypedConst α] (σ τ: Subst α) (t: Term α)
+theorem Term.subst_comp (σ τ: Subst) (t: Term)
   : t.subst (σ.comp τ) = (t.subst τ).subst σ := by
   induction t generalizing σ τ with
   | var n => rfl
   | _ => simp only [Term.subst, Subst.lift_comp, *]
 
-theorem Subst.lift_eqToN_succ {α} [TypedConst α] {σ τ: Subst α} {n} (H: EqToN n σ τ)
+theorem Subst.lift_eqToN_succ {σ τ: Subst} {n} (H: EqToN n σ τ)
   : EqToN n.succ σ.lift τ.lift
   | 0, _ => rfl
   | m + 1, Hm => congrArg _ (H m (Nat.lt_of_succ_lt_succ Hm))
 
-theorem Subst.lift_congr_eqToN {α} [TypedConst α] {σ τ: Subst α} {n} (H: EqToN n σ τ)
+theorem Subst.lift_congr_eqToN {σ τ: Subst} {n} (H: EqToN n σ τ)
   : EqToN n σ.lift τ.lift := (lift_eqToN_succ H).succ_sub
 
-theorem Subst.lift_eqToN_pred {α} [TypedConst α] {σ τ: Subst α} {n}
+theorem Subst.lift_eqToN_pred {σ τ: Subst} {n}
   : EqToN n.pred σ τ -> EqToN n σ.lift τ.lift :=
   match n with | 0 => lift_congr_eqToN | _ + 1 => lift_eqToN_succ
 
-theorem Term.subst_fv {α} [TypedConst α] {σ τ: Subst α} (t: Term α) (H: EqToN t.fv σ τ)
+theorem Term.subst_fv {σ τ: Subst} (t: Term) (H: EqToN t.fv σ τ)
   : t.subst σ = t.subst τ := by
   induction t generalizing σ τ with
   | var n =>  exact H n (Nat.le_refl n.succ)
@@ -245,19 +257,19 @@ theorem Term.subst_fv {α} [TypedConst α] {σ τ: Subst α} (t: Term α) (H: Eq
         simp [le_max_iff, le_refl, true_or]
       }
 
-theorem Term.subst_closed {α} [TypedConst α] {σ} (t: Term α) (H: t.fv = 0)
+theorem Term.subst_closed {σ} (t: Term) (H: t.fv = 0)
   : t.subst σ = t :=
   (t.subst_fv (H.symm ▸ (EqToN.zero_app _ _))).trans t.subst_id
 
-def Term.subst0 {α} [TypedConst α] (t: Term α): Subst α
+def Term.subst0 (t: Term): Subst
   | 0 => t
   | n + 1 => var n
 
-def Term.alpha0 {α} [TypedConst α] (t: Term α): Subst α
+def Term.alpha0 (t: Term): Subst
   | 0 => t
   | n => var n
 
-theorem Term.subst0_liftn_liftWk_liftn {α} [TypedConst α] (t: Term α) (ρ: ℕ -> ℕ) (s: Term α) (n)
+theorem Term.subst0_liftn_liftWk_liftn (t: Term) (ρ: ℕ -> ℕ) (s: Term) (n)
   : (t.wk (liftWk^[n + 1] ρ)).subst (Subst.lift^[n] (s.wk ρ).subst0)
   = (t.subst (Subst.lift^[n] s.subst0)).wk (liftWk^[n] ρ) := by
   induction t generalizing ρ s n with
@@ -281,7 +293,6 @@ theorem Term.subst0_liftn_liftWk_liftn {α} [TypedConst α] (t: Term α) (ρ: �
         congr
         funext _
         simp [liftnWk]
-        -- split <;> simp_arith at *
     . split
       . simp_arith at *
       . split
@@ -312,6 +323,6 @@ theorem Term.subst0_liftn_liftWk_liftn {α} [TypedConst α] (t: Term α) (ρ: �
                 exact le_refl _
   | _ => simp only [subst, wk, <-Function.iterate_succ_apply', *]
 
-theorem Term.subst0_liftWk {α} [TypedConst α] (t: Term α) (ρ: ℕ -> ℕ) (s: Term α)
+theorem Term.subst0_liftWk (t: Term) (ρ: ℕ -> ℕ) (s: Term)
   : (t.wk (liftWk ρ)).subst (s.wk ρ).subst0 = (t.subst s.subst0).wk ρ :=
   subst0_liftn_liftWk_liftn t ρ s 0

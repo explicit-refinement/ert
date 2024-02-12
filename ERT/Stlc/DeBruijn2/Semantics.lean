@@ -1,8 +1,8 @@
-import ERT.Stlc.DeBruijn.Basic
+import ERT.Stlc.DeBruijn2.Basic
 
-namespace Stlc.DeBruijn
+namespace Stlc.DeBruijn2
 
-def HasTy.den {α} [τ: SemanticConst α] {Γ} {a: Term α} {A}
+def HasTy.den {Γ} {a: Term} {A} [τ: Semantic BaseTy]
   : HasTy Γ a A -> Γ.den -> τ.Effect A.den
   | HasTy.var v, G => G v
   | HasTy.app s t, G => do
@@ -31,24 +31,23 @@ def HasTy.den {α} [τ: SemanticConst α] {Γ} {a: Term α} {A}
   | HasTy.inr t, G => do
     let t <- t.den G
     pure (Sum.inr t)
-  | HasTy.cnst c, G => τ.cnstDen c
   | HasTy.abort _, _ => τ.abort _
 
-def HasTy.den_cast {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {a: Term α} {A B}
+def HasTy.den_cast {Γ: Ctx BaseTy} {a: Term} {A B}
   (H: HasTy Γ a A) (HAB : A = B)
   : den (HAB ▸ H) = HAB ▸ den H
   := by
     cases HAB
     rfl
 
-def HasTy.den_cast_app {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {a: Term α} {A B}
+def HasTy.den_cast_app {Γ: Ctx BaseTy} {a: Term} {A B}
   (H: HasTy Γ a A) (G: Γ.den) (HAB : A = B)
   : den (HAB ▸ H) G = HAB ▸ (den H G)
   := by
     cases HAB
     rfl
 
-def HasTy.den_wk_app {α} [τ: SemanticConst α] {ρ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
+def HasTy.den_wk_app {ρ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
   (R: WkList ρ Γ Δ): (H: HasTy Δ a A) ->
     (G: Γ.den) -> (H.wk R).den G = H.den (R.den G)
   | HasTy.var v, G => by
@@ -90,25 +89,24 @@ def HasTy.den_wk_app {α} [τ: SemanticConst α] {ρ} {Γ Δ: Ctx τ.Base} {a: T
   | HasTy.inr t, G => by
     rw [HasTy.den, <-HasTy.den_wk_app R t G]
     rfl
-  | HasTy.cnst c, G => rfl
   | HasTy.abort _, _ => rfl
 
-def HasTy.den_wk {α} [τ: SemanticConst α] {ρ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
+def HasTy.den_wk {ρ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
   (R: WkList ρ Γ Δ) (H: HasTy Δ a A): (H.wk R).den = H.den ∘ R.den := by
   funext G; apply HasTy.den_wk_app
 
-def Subst.Valid.den {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base}
+def Subst.Valid.den {σ} {Γ Δ: Ctx BaseTy}
   (V: Subst.Valid σ Γ Δ) (G: Γ.den): Δ.den
   := λk => (V k).den G
 
-def Subst.Valid.lift_den {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {A: Ty τ.Base}
-  (V: Subst.Valid σ Γ Δ) (G: Γ.den) (x: τ.Effect A.den)
+def Subst.Valid.lift_den {σ} {Γ Δ: Ctx BaseTy} {A: Ty BaseTy}
+  (V: Subst.Valid σ Γ Δ) (G: Γ.den) (x: Option A.den)
   : (V.lift _).den (Fin.cons x G) = Fin.cons x (V.den G)
   := by funext ⟨k, Hk⟩; cases k with
   | zero => rfl
   | succ n => simp [den, lift, Fin.cons, HasTy.den_wk_app, WkList.den_wk1]
 
-theorem HasTy.den_subst_app {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
+theorem HasTy.den_subst_app {σ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
   (V: Subst.Valid σ Γ Δ): (H: HasTy Δ a A) ->
     (G: Γ.den) -> (H.subst V).den G = H.den (V.den G)
   | HasTy.var _, _ => rfl
@@ -150,44 +148,43 @@ theorem HasTy.den_subst_app {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base
   | HasTy.inr t, G => by
     rw [HasTy.den, <-HasTy.den_subst_app V t G]
     rfl
-  | HasTy.cnst c, G => rfl
   | HasTy.abort _, _ => rfl
 
-theorem HasTy.den_subst {α} [τ: SemanticConst α] {σ} {Γ Δ: Ctx τ.Base} {a: Term α} {A}
+theorem HasTy.den_subst {σ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
   (V: Subst.Valid σ Γ Δ) (H: HasTy Δ a A): (H.subst V).den = H.den ∘ V.den := by
   funext G; apply HasTy.den_subst_app
 
-def _root_.WkList.toSubst {α} [τ: SemanticConst α] {ρ} {Γ Δ: Ctx τ.Base}
-  (R: WkList ρ Γ Δ): Subst.Valid (Subst.fromWk _ ρ) Γ Δ
+def _root_.WkList.toSubst2 {ρ} {Γ Δ: Ctx BaseTy}
+  (R: WkList ρ Γ Δ): Subst.Valid (Subst.fromWk ρ) Γ Δ
   := λk => R.get_eq k ▸ HasTy.var (R.toWkNat.app k)
 
-theorem _root_.WkList.toSubst_den {α} [τ: SemanticConst α] {ρ} {Γ Δ: Ctx τ.Base}
-  (R: WkList ρ Γ Δ) : R.toSubst.den = R.den := by
+theorem _root_.WkList.toSubst2_den {ρ} {Γ Δ: Ctx BaseTy}
+  (R: WkList ρ Γ Δ) : R.toSubst2.den = R.den := by
   funext G ⟨k, Hk⟩
-  simp [Subst.Valid.den, WkList.den, HasTy.den, WkList.toSubst, HasTy.den_cast_app]
+  simp [Subst.Valid.den, WkList.den, HasTy.den, WkList.toSubst2, HasTy.den_cast_app]
 
-theorem HasTy.den_wk_toSubst {α} [τ: SemanticConst α] {ρ}
-  {Γ Δ: Ctx τ.Base} {a: Term α} {A}
-  (R: WkList ρ Γ Δ) (H: HasTy Δ a A): (H.wk R).den = (H.subst R.toSubst).den := by
-  rw [HasTy.den_wk, HasTy.den_subst, WkList.toSubst_den]
+theorem HasTy.den_wk_toSubst2 {ρ}
+  {Γ Δ: Ctx BaseTy} {a: Term} {A}
+  (R: WkList ρ Γ Δ) (H: HasTy Δ a A): (H.wk R).den = (H.subst R.toSubst2).den := by
+  rw [HasTy.den_wk, HasTy.den_subst, WkList.toSubst2_den]
 
-def Subst.Valid.comp {α} [τ: SemanticConst α] {ρ σ} {Γ Δ Ξ: Ctx τ.Base}
+def Subst.Valid.comp {ρ σ} {Γ Δ Ξ: Ctx BaseTy}
   (V: Subst.Valid ρ Γ Δ) (V': Subst.Valid σ Δ Ξ): Subst.Valid (ρ.comp σ) Γ Ξ
   := λk => (V' k).subst V
 
-theorem Subst.Valid.den_comp {α} [τ: SemanticConst α] {ρ σ} {Γ Δ Ξ: Ctx τ.Base}
+theorem Subst.Valid.den_comp {ρ σ} {Γ Δ Ξ: Ctx BaseTy}
   (V: Subst.Valid ρ Γ Δ) (V': Subst.Valid σ Δ Ξ) (G: Γ.den)
   : (V.comp V').den G = V'.den (V.den G) := by
   funext ⟨k, Hk⟩
   simp [Subst.Valid.den, Subst.Valid.comp, HasTy.den_subst_app]
 
-theorem HasTy.subst0 {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {a: Term α} {A}
+theorem HasTy.subst0 {Γ: Ctx BaseTy} {a: Term} {A}
   (H: HasTy Γ a A)
   : Subst.Valid a.subst0 Γ (A::Γ)
   | ⟨0, _⟩ => H
   | ⟨n + 1, Hn⟩ => List.get_cons_succ.symm ▸ var ⟨n, Nat.lt_of_succ_lt_succ Hn⟩
 
-theorem HasTy.alpha0 {α} [τ: SemanticConst α] {Γ: Ctx τ.Base} {a: Term α} {A B}
+theorem HasTy.alpha0 {Γ: Ctx BaseTy} {a: Term} {A B}
   (H: HasTy (A::Γ) a B)
   : Subst.Valid a.alpha0 (A::Γ) (B::Γ)
   | ⟨0, _⟩ => H

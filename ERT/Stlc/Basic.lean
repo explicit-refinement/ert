@@ -1,3 +1,5 @@
+import ERT.Utils.Wk
+import Mathlib.Data.Fin.Tuple.Basic
 namespace Stlc
 
 inductive Ty (τ: Type)
@@ -35,29 +37,62 @@ class TypedConst (α: Type) :=
   (Base: Type)
   (cnstTy: α -> Ty Base)
 
-class SemanticConst (α: Type)
-  extends TypedConst α, CoeSort Base Type where
+class Semantic (τ: Type)
+  extends CoeSort τ Type where
   Effect: Type -> Type
   isMonad: Monad Effect
   isLawful: LawfulMonad Effect
-  cnstDen: (a: α) -> Effect ((cnstTy a).den_in Effect)
   abort: (β: Type) -> Effect β
 
-instance {α} [SemanticConst α]: Monad (SemanticConst.Effect α)
-  := SemanticConst.isMonad
+class SemanticConst (α: Type)
+  extends TypedConst α, Semantic Base where
+  cnstDen: (a: α) -> Effect ((cnstTy a).den_in Effect)
 
-instance {α} [SemanticConst α]: LawfulMonad (SemanticConst.Effect α)
-  := SemanticConst.isLawful
+instance {τ} [Semantic τ]: Monad (Semantic.Effect τ)
+  := Semantic.isMonad
 
-def Ty.den {α} [τ: SemanticConst α]: Ty τ.Base -> Type
-  := Ty.den_in τ.Effect
+instance {τ} [Semantic τ]: LawfulMonad (Semantic.Effect τ)
+  := Semantic.isLawful
 
-abbrev Ctx.den {α} [τ: SemanticConst α]: Ctx τ.Base -> Type
-  := Ctx.den_in τ.Effect
+def Ty.den {τ} [e: Semantic τ]: Ty τ -> Type
+  := Ty.den_in e.Effect
 
-abbrev Ctx.prod_den {α} [τ: SemanticConst α]: Ctx τ.Base -> Type
-  := Ctx.prod_den_in τ.Effect
+abbrev Ctx.den {τ} [e: Semantic τ]: Ctx τ -> Type
+  := Ctx.den_in e.Effect
 
-abbrev Ctx.pure_den {α} [τ: SemanticConst α]: {Γ: Ctx τ.Base}
+abbrev Ctx.prod_den {τ} [e: Semantic τ]: Ctx τ -> Type
+  := Ctx.prod_den_in e.Effect
+
+abbrev Ctx.pure_den {τ} [Semantic τ]: {Γ: Ctx τ}
   -> Γ.prod_den -> Γ.den
   := Ctx.pure_den_in
+
+end Stlc
+
+open Stlc
+
+def WkList.den {τ} [Semantic τ] {Γ Δ: Ctx τ} (R: WkList ρ Γ Δ)
+  (G: Γ.den): Δ.den
+  := λk => (R.get_eq k) ▸ G (R.toWkNat.app k)
+
+def WkList.den_lift {τ} [e: Semantic τ] {Γ Δ: Ctx τ} {A: Ty τ}
+  (R: WkList ρ Γ Δ) (G: Γ.den) (x: e.Effect A.den)
+  : (R.lift _).den (Fin.cons x G) = Fin.cons x (R.den G)
+  := by funext ⟨k, Hk⟩; cases k <;> rfl
+
+-- def WkList.den_lift' {α} [τ: SemanticConst α] {Γ Δ: Ctx τ.Base} {A: Ty τ.Base}
+--   (R: WkList ρ Γ Δ)
+--   (R': WkList (liftWk ρ) (A::Γ) (A::Δ))
+--   (G: Γ.den) (x: τ.Effect A.den)
+--   : R'.den (Fin.cons x G) = Fin.cons x (R.den G)
+--   := by funext ⟨k, Hk⟩; cases k <;> rfl
+
+def WkList.den_step {τ} [e: Semantic τ] {Γ Δ: Ctx τ} {A: Ty τ}
+  (R: WkList ρ Γ Δ) (G: Γ.den) (x: e.Effect A.den)
+  : (R.step _).den (Fin.cons x G) = R.den G
+  := by funext ⟨k, Hk⟩; rfl
+
+def WkList.den_wk1 {τ} [e: Semantic τ] {Γ: Ctx τ} {A: Ty τ}
+  (G: Γ.den) (x: e.Effect A.den)
+  : (WkList.wk1 A Γ).den (Fin.cons x G) = G
+  := by funext ⟨k, Hk⟩; rfl

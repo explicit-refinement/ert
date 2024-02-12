@@ -16,6 +16,9 @@ import ERT.Stlc.DeBruijn.Basic
 import ERT.Stlc.DeBruijn.Semantics
 import ERT.Stlc.DeBruijn.Reconstruction
 
+import ERT.Stlc.DeBruijn2.Basic
+import ERT.Stlc.DeBruijn2.Semantics
+
 import ERT.PER.Basic
 import ERT.PER.Monad
 
