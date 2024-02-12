@@ -29,6 +29,12 @@ inductive HasTy: Ctx BaseTy -> Term -> Ty BaseTy -> Type
     -> HasTy Γ (case s t u) C
 | inl : HasTy Γ s A -> HasTy Γ (inj 0 s) (coprod A B)
 | inr : HasTy Γ s B -> HasTy Γ (inj 1 s) (coprod A B)
+| zero: HasTy Γ Term.zero (Ty.base BaseTy.nat)
+| succ: HasTy Γ n (Ty.base BaseTy.nat) -> HasTy Γ (Term.succ n) (Ty.base BaseTy.nat)
+| natrec: HasTy Γ z A
+    -> HasTy (A :: (Ty.base BaseTy.nat) :: Γ) s A
+    -> HasTy Γ n (Ty.base BaseTy.nat)
+    -> HasTy Γ (natrec z s n) A
 | abort A : HasTy Γ (abort A) A
 
 def HasTy.wk {ρ} {Γ Δ: Ctx BaseTy} {t: Term} {A: Ty BaseTy}
@@ -44,6 +50,13 @@ def HasTy.wk {ρ} {Γ Δ: Ctx BaseTy} {t: Term} {A: Ty BaseTy}
     (HasTy.wk (WkList.lift _ R) u)
   | inl s => inl (HasTy.wk R s)
   | inr s => inr (HasTy.wk R s)
+  | zero => zero
+  | succ s => succ (HasTy.wk R s)
+  | natrec z s n =>
+    natrec
+        (HasTy.wk R z)
+        (HasTy.wk (WkList.lift _ (WkList.lift _ R)) s)
+        (HasTy.wk R n)
   | abort A => abort A
 
 def Subst.Valid (σ: Subst) (Γ Δ: Ctx BaseTy)
@@ -66,4 +79,11 @@ def HasTy.subst {σ} {Γ Δ: Ctx BaseTy} {t: Term} {A: Ty BaseTy}
         (HasTy.subst (V.lift _) u)
     | inl s => inl (HasTy.subst V s)
     | inr s => inr (HasTy.subst V s)
+    | zero => zero
+    | succ s => succ (HasTy.subst V s)
+    | natrec z s n =>
+        natrec
+            (HasTy.subst V z)
+            (HasTy.subst ((V.lift _).lift _) s)
+            (HasTy.subst V n)
     | abort A => abort A

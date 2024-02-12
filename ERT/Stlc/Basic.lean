@@ -75,10 +75,18 @@ def WkList.den {τ} [Semantic τ] {Γ Δ: Ctx τ} (R: WkList ρ Γ Δ)
   (G: Γ.den): Δ.den
   := λk => (R.get_eq k) ▸ G (R.toWkNat.app k)
 
-def WkList.den_lift {τ} [e: Semantic τ] {Γ Δ: Ctx τ} {A: Ty τ}
+def WkList.den_lift {τ} [e: Semantic τ] {Γ Δ: Ctx τ} {A: Ty τ} {ρ}
   (R: WkList ρ Γ Δ) (G: Γ.den) (x: e.Effect A.den)
-  : (R.lift _).den (Fin.cons x G) = Fin.cons x (R.den G)
+  : (R.lift A).den (Fin.cons x G) = Fin.cons x (R.den G)
   := by funext ⟨k, Hk⟩; cases k <;> rfl
+
+def WkList.den_lift2 {τ} [e: Semantic τ] {Γ Δ: Ctx τ} {A B: Ty τ} {ρ}
+  (R: WkList ρ Γ Δ) (G: Γ.den) (x: e.Effect A.den) (y: e.Effect B.den)
+  : ((R.lift B).lift A).den (Fin.cons x (Fin.cons y G)) = Fin.cons x (Fin.cons y (R.den G))
+  := by rw [
+      @WkList.den_lift τ e (B::Γ) (B::Δ) A (liftWk ρ) (R.lift B),
+      WkList.den_lift
+    ]
 
 -- def WkList.den_lift' {α} [τ: SemanticConst α] {Γ Δ: Ctx τ.Base} {A: Ty τ.Base}
 --   (R: WkList ρ Γ Δ)

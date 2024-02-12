@@ -2,8 +2,8 @@ import ERT.Stlc.DeBruijn2.Basic
 
 namespace Stlc.DeBruijn2
 
-def HasTy.den {Γ} {a: Term} {A} [τ: Semantic BaseTy]
-  : HasTy Γ a A -> Γ.den -> τ.Effect A.den
+def HasTy.den {Γ} {a: Term} {A} --[τ: Semantic BaseTy]
+  : HasTy Γ a A -> Γ.den -> Option A.den
   | HasTy.var v, G => G v
   | HasTy.app s t, G => do
     let s <- s.den G
@@ -31,7 +31,15 @@ def HasTy.den {Γ} {a: Term} {A} [τ: Semantic BaseTy]
   | HasTy.inr t, G => do
     let t <- t.den G
     pure (Sum.inr t)
-  | HasTy.abort _, _ => τ.abort _
+  | HasTy.zero, G => pure Nat.zero
+  | HasTy.succ n, G => do
+    let n <- n.den G
+    pure (Nat.succ n)
+  | HasTy.natrec z s n, G => do
+    let z <- z.den G
+    let n <- n.den G
+    Nat.rec z (λi x => s.den (Fin.cons x (Fin.cons (pure i) G))) n
+  | HasTy.abort _, _ => none--τ.abort _
 
 def HasTy.den_cast {Γ: Ctx BaseTy} {a: Term} {A B}
   (H: HasTy Γ a A) (HAB : A = B)
@@ -89,6 +97,19 @@ def HasTy.den_wk_app {ρ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
   | HasTy.inr t, G => by
     rw [HasTy.den, <-HasTy.den_wk_app R t G]
     rfl
+  | HasTy.zero, G => rfl
+  | HasTy.succ n, G => by
+    rw [HasTy.den, <-HasTy.den_wk_app R n G]
+    rfl
+  | HasTy.natrec z s n, G => by
+    rw [HasTy.den, <-HasTy.den_wk_app R z G, <-HasTy.den_wk_app R n G, wk, HasTy.den]
+    apply congrArg
+    funext z
+    apply congrArg
+    funext n
+    congr
+    funext i x
+    rw [HasTy.den_wk_app _ s _, WkList.den_lift2]
   | HasTy.abort _, _ => rfl
 
 def HasTy.den_wk {ρ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
@@ -105,6 +126,12 @@ def Subst.Valid.lift_den {σ} {Γ Δ: Ctx BaseTy} {A: Ty BaseTy}
   := by funext ⟨k, Hk⟩; cases k with
   | zero => rfl
   | succ n => simp [den, lift, Fin.cons, HasTy.den_wk_app, WkList.den_wk1]
+
+
+def Subst.Valid.lift2_den {σ} {Γ Δ: Ctx BaseTy} {A B: Ty BaseTy}
+  (V: Subst.Valid σ Γ Δ) (G: Γ.den) (x: Option A.den) (y: Option B.den)
+  : ((V.lift _).lift _).den (Fin.cons x (Fin.cons y G)) = Fin.cons x (Fin.cons y (V.den G))
+  := by rw [lift_den, lift_den]
 
 theorem HasTy.den_subst_app {σ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
   (V: Subst.Valid σ Γ Δ): (H: HasTy Δ a A) ->
@@ -148,6 +175,19 @@ theorem HasTy.den_subst_app {σ} {Γ Δ: Ctx BaseTy} {a: Term} {A}
   | HasTy.inr t, G => by
     rw [HasTy.den, <-HasTy.den_subst_app V t G]
     rfl
+  | HasTy.zero, G => rfl
+  | HasTy.succ n, G => by
+    rw [HasTy.den, <-HasTy.den_subst_app V n G]
+    rfl
+  | HasTy.natrec z s n, G => by
+    rw [HasTy.den, <-HasTy.den_subst_app V z G, <-HasTy.den_subst_app V n G, subst, HasTy.den]
+    apply congrArg
+    funext z
+    apply congrArg
+    funext n
+    congr
+    funext i x
+    rw [HasTy.den_subst_app _ s _, Subst.Valid.lift2_den]
   | HasTy.abort _, _ => rfl
 
 theorem HasTy.den_subst {σ} {Γ Δ: Ctx BaseTy} {a: Term} {A}

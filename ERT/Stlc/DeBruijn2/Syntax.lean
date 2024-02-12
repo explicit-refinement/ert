@@ -26,6 +26,9 @@ inductive Term: Type
   | let2 (s t: Term)
   | case (e l r: Term)
   | inj (b: Fin 2) (t: Term)
+  | zero
+  | succ (t: Term)
+  | natrec (z s n: Term)
   | abort (A: Ty BaseTy)
 
 def Term.wk (ρ: Nat -> Nat) : Term -> Term
@@ -37,6 +40,8 @@ def Term.wk (ρ: Nat -> Nat) : Term -> Term
   | let2 s t => let2 (wk ρ s) (wk (liftWk (liftWk ρ)) t)
   | case e l r => case (wk ρ e) (wk (liftWk ρ) l) (wk (liftWk ρ) r)
   | inj b t => inj b (wk ρ t)
+  | succ s => succ (wk ρ s)
+  | natrec z s n => natrec (wk ρ z) (wk (liftWk (liftWk ρ)) s) (wk ρ n)
   | t => t
 
 theorem Term.wk_id (t: Term): t.wk id = t := by
@@ -72,6 +77,8 @@ def Term.fv: Term -> ℕ
   | let2 a e => a.fv.max e.fv.pred.pred
   | inj _ t => t.fv
   | case e l r => e.fv.max (l.fv.pred.max r.fv.pred)
+  | succ t => t.fv
+  | natrec z s n => z.fv.max (s.fv.pred.pred.max n.fv)
   | _ => 0
 
 theorem Term.wk_fv {ρ σ} (t: Term) (H: EqToN t.fv ρ σ): t.wk ρ = t.wk σ := by
@@ -167,14 +174,14 @@ def Term.subst (σ: Subst): Term -> Term
   | let2 a e => let2 (subst σ a) (subst σ.lift.lift e)
   | inj b t => inj b (subst σ t)
   | case e l r => case (subst σ e) (subst σ.lift l) (subst σ.lift r)
+  | succ s => succ (subst σ s)
+  | natrec z s n => natrec (subst σ z) (subst σ.lift.lift s) (subst σ n)
   | t => t
 
 def Term.subst_id (t: Term): t.subst (Subst.id) = t := by
   induction t with
   | var _ => rfl
   | _ => simp only [Term.subst, Subst.lift_id, *]
-
-
 
 def Subst.fromWk (ρ: ℕ -> ℕ): Subst := Term.var ∘ ρ
 
