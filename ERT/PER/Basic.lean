@@ -20,9 +20,29 @@ def PER.empty {α}: @PER α ⊥ where
 def PER.inf {α} {r s: α -> α -> Prop} (R: PER r) (S: PER s): PER (r ⊓ s) where
   symm H := ⟨R.symm H.left, S.symm H.right⟩
   trans H H' := ⟨R.trans H.left H'.left, S.trans H.right H'.right⟩
--- def PER.sInf {α: Type} {rs: Set (α -> α -> Prop)} (R: ∀r ∈ rs, PER r): PER (sInf r) where
---   symm H p | ⟨Hp, Hp'⟩ => sorry
---   trans H H' r Hr := sorry
+
+def PER.sInf {α: Type} {rs: Set (α -> α -> Prop)} (R: ∀r ∈ rs, PER r): PER (sInf rs) where
+  symm
+  | H, φ, ⟨⟨ra, r, Hra⟩, Hφ⟩ => by
+    --TODO: clean this once I actually understand how the mathlib APIs work
+    simp only [<-Hφ, <-Hra]
+    apply (R r.1 r.2).symm
+    rw [sInf_apply, iInf_apply] at H
+    apply H
+    apply Set.mem_range.mp ⟨r, by simp only []⟩
+  trans
+  | H, H', φ, ⟨⟨ra, r, Hra⟩, Hφ⟩ => by
+    --TODO: clean this once I actually understand how the mathlib APIs work
+    rename_i x y z
+    simp only [<-Hφ, <-Hra]
+    apply (R r.1 r.2).trans
+    apply H
+    apply Set.mem_range.mp ⟨⟨ra, r, Hra⟩, _⟩
+    exact y
+    simp only [<-Hra]
+    apply H'
+    apply Set.mem_range.mp ⟨⟨r.1 y, r, rfl⟩, _⟩
+    simp
 
 theorem PER.refl_left (A: PER r) (Hab: r a b): r a a
   := A.trans Hab (A.symm Hab)
@@ -91,11 +111,64 @@ theorem PER.refl_equivalence {α} {r: α -> α -> Prop}
   symm := P.symm
   trans := P.trans
 
-class PSetoid (α) where
+class PSetoid (α: Type u) where
   r: α -> α -> Prop
   isper: PER r
 
-instance {α: Sort u} [PSetoid α] : HasEquiv α :=
+theorem PSetoid.ext' {α} (S T: PSetoid α)
+  (H: S.r = T.r)
+  : S = T := match S, T with
+  | ⟨r, _⟩, ⟨r', _⟩ => by
+    subst H
+    rfl
+
+theorem PSetoid.ext {α} (S T: PSetoid α)
+  (H: ∀a b, S.r a b ↔ T.r a b)
+  : S = T := ext' S T (funext (λa => funext (λb => propext (H a b))))
+
+instance {α}: LE (PSetoid α) where
+  le S T := S.r ≤ T.r
+
+theorem PSetoid.le_ext {α} (S T: PSetoid α)
+  (H: S.r ≤ T.r): S ≤ T := H
+
+instance {α}: PartialOrder (PSetoid α) where
+  le_refl _ := PSetoid.le_ext _ _ (le_refl _)
+  le_trans _ _ _ H H' := PSetoid.le_ext _ _ (le_trans H H')
+  le_antisymm _ _ H H' := PSetoid.ext' _ _ (le_antisymm H H')
+
+instance {α}: InfSet (PSetoid α) where
+  sInf Ps := ⟨
+    sInf ((λP => P.r) <$> Ps),
+    PER.sInf (λ_ ⟨P, _, HPr⟩ => HPr ▸ P.isper)
+  ⟩
+
+def PSetoid.isGLB_sInf {α} (PS: Set (PSetoid α)): IsGLB PS (sInf PS) := ⟨
+    λP HP => PSetoid.le_ext _ _ (CompleteLattice.sInf_le _ _ ⟨P, HP, rfl⟩),
+    λ_ HP => PSetoid.le_ext _ _ (CompleteLattice.le_sInf _ _ (λ_ ⟨_, HP', He⟩ => He ▸ HP HP'))
+  ⟩
+
+instance {α}: CompleteLattice (PSetoid α) := {
+  inf := λS T => ⟨S.r ⊓ T.r, PER.inf S.isper T.isper⟩,
+  inf_le_left := λ_ _ => PSetoid.le_ext _ _ (inf_le_left),
+  inf_le_right := λ_ _ => PSetoid.le_ext _ _ (inf_le_right),
+  le_inf := λ_ _ _ H H' => PSetoid.le_ext _ _ (le_inf H H'),
+  top := ⟨⊤, PER.univ⟩,
+  le_top := λ_ => PSetoid.le_ext _ _ (le_top),
+  bot := ⟨⊥, PER.empty⟩,
+  bot_le := λ_ => PSetoid.le_ext _ _ (bot_le),
+  sup := λ a b => sInf { x : PSetoid α | a ≤ x ∧ b ≤ x }
+  sup_le := λ a b c hac hbc => (PSetoid.isGLB_sInf _).1 <| by simp [*]
+  le_sup_left := λ a b => (PSetoid.isGLB_sInf _).2 λ x => And.left
+  le_sup_right := λ a b => (PSetoid.isGLB_sInf _).2 λ x => And.right
+  le_sInf := λ s a ha => (PSetoid.isGLB_sInf s).2 ha
+  sInf_le := λ s a ha => (PSetoid.isGLB_sInf s).1 ha
+  sSup := λ s => sInf (upperBounds s),
+  le_sSup := λ s a ha => (PSetoid.isGLB_sInf (upperBounds s)).2 λ b hb => hb ha,
+  sSup_le := λ s a ha => (PSetoid.isGLB_sInf (upperBounds s)).1 ha
+}
+
+instance {α: Type u} [PSetoid α] : HasEquiv α :=
   ⟨PSetoid.r⟩
 
 theorem PSetoid.symm {α} [PSetoid α] {a b: α}: a ≈ b -> b ≈ a :=
