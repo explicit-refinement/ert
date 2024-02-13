@@ -3,6 +3,7 @@ import Mathlib.Init.Function
 import Mathlib.Logic.Function.Basic
 import Mathlib.Data.Nat.Defs
 import Mathlib.Data.Fin.Fin2
+import Mathlib.Data.Fin.Basic
 
 /-!
 # Weakenings
@@ -18,27 +19,54 @@ def liftWk (ρ: Nat -> Nat): Nat -> Nat
 
 def liftWk_id: liftWk id = id := by funext n; cases n <;> simp [liftWk]
 
-def liftWk_inj: Function.Injective liftWk := by
+def liftWk_injective: Function.Injective liftWk := by
   intro ρ σ H
   funext n
   have H': liftWk ρ (n + 1) = liftWk σ (n + 1) := by rw [H]
   exact Nat.succ_injective H'
 
-def stepWk_inj: Function.Injective stepWk := by
+def stepWk_injective: Function.Injective stepWk := by
   intro ρ σ H
   funext n
   have H': stepWk ρ n = stepWk σ n := by rw [H]
   exact Nat.succ_injective H'
 
 def liftWk_comp (ρ σ: Nat -> Nat): liftWk (ρ ∘ σ) = liftWk ρ ∘ liftWk σ := by
- funext n; cases n <;> simp [liftWk]
+ funext n; cases n <;> rfl
 
-def liftWk_comp_succ (ρ: Nat -> Nat): liftWk ρ ∘ Nat.succ = Nat.succ ∘ ρ := by
-  funext n; cases n <;> rfl
+def liftWk_comp_succ (ρ: Nat -> Nat): liftWk ρ ∘ Nat.succ = Nat.succ ∘ ρ := rfl
 
 def liftWk_ne_stepWk (ρ σ: Nat -> Nat): liftWk ρ ≠ stepWk σ :=
   have H: (liftWk ρ 0) ≠ (stepWk σ 0) := by simp [liftWk, stepWk]
   λH' => H (by rw [H'])
+
+/-
+Finite lifts
+-/
+
+def stepFin {n m} (ρ: Fin n -> Fin m): Fin n -> Fin (m + 1)
+  := Fin.succ ∘ ρ
+
+def liftFin {n m} (ρ: Fin n -> Fin m): Fin (n + 1) -> Fin (m + 1)
+  := Fin.cases 0 (Fin.succ ∘ ρ)
+
+def liftFin_id (n): liftFin (@id (Fin n)) = id := by
+  funext ⟨k, H⟩
+  cases k with
+  | zero => rfl
+  | succ k => rfl
+
+def liftFin_injective (n m): Function.Injective (@liftFin n m) := by
+  intro ρ σ H
+  funext k
+  have H': liftFin ρ k.succ = liftFin σ k.succ := by rw [H]
+  exact Fin.succ_injective _ H'
+
+def liftFin_comp {n m} (ρ: Fin m -> Fin k) (σ: Fin n -> Fin m):
+  liftFin (ρ ∘ σ) = liftFin ρ ∘ liftFin σ := by
+  funext ⟨k, Hk⟩; cases k <;> rfl
+
+def liftFin_comp_succ {n m} (ρ: Fin n -> Fin m): liftFin ρ ∘ Fin.succ = Fin.succ ∘ ρ := rfl
 
 /-
 Equality functions up-to-n
@@ -509,7 +537,7 @@ theorem WkList.lift_rest {A} {ρ} {Γ Δ: List A}
     generalize H: liftWk ρ = ρ'
     intro R
     cases R with
-    | lift R => rw [liftWk_inj H]; assumption
+    | lift R => rw [liftWk_injective H]; assumption
     | step R => exact (liftWk_ne_stepWk _ _ H).elim
 
 theorem WkList.step_rest {A} {ρ} {Γ Δ: List A}
@@ -519,7 +547,7 @@ theorem WkList.step_rest {A} {ρ} {Γ Δ: List A}
     intro R
     cases R with
     | lift R => exact (liftWk_ne_stepWk _ _ H.symm).elim
-    | step R => rw [stepWk_inj H]; assumption
+    | step R => rw [stepWk_injective H]; assumption
 
 theorem WkList.getElem_eq {A} {ρ} {Γ Δ: List A} (R: WkList ρ Γ Δ)
   : ∀k: Fin Δ.length, Γ[R.toWkNat.app k] = Δ[k]

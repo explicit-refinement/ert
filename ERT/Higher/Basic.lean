@@ -369,7 +369,6 @@ theorem Term.subst0_liftn_liftWk_liftn (t: Term) (ρ: ℕ -> ℕ) (s: Term) (n)
         congr
         funext _
         simp [liftnWk]
-        split <;> simp_arith at *
     . split
       . simp_arith at *
       . split

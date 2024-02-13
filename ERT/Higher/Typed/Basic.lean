@@ -18,22 +18,22 @@ def Term.IsSort.toGhost {K w}: @Term.IsSort K w -> Term.IsSort K ghost
   | prop => prop
   | type _ => type ghost
 
-inductive Term.PiType: World -> Term -> Term -> Term -> World -> Type
-  | pi (w): PiType comp type type type w
-  | inter (w): PiType ghost type type type w
-  | checked: PiType comp type prop prop ghost
-  | forall_: PiType ghost type prop prop ghost
-  | assume (w): PiType ghost prop type type w
-  | implies: PiType ghost prop prop prop ghost
+-- inductive Term.PiType: World -> Term -> Term -> Term -> World -> Type
+--   | pi (w): PiType comp type type type w
+--   | inter (w): PiType ghost type type type w
+--   | checked: PiType comp type prop prop ghost
+--   | forall_: PiType ghost type prop prop ghost
+--   | assume (w): PiType ghost prop type type w
+--   | implies: PiType ghost prop prop prop ghost
 
-def Term.PiType.toGhost {w} {KA KB KC: Term} {rw}
-  : Term.PiType w KA KB KC rw -> Term.PiType w KA KB KC ghost
-  | pi _ => pi ghost
-  | inter _ => inter ghost
-  | checked => checked
-  | forall_ => forall_
-  | assume _ => assume ghost
-  | implies => implies
+-- def Term.PiType.toGhost {w} {KA KB KC: Term} {rw}
+--   : Term.PiType w KA KB KC rw -> Term.PiType w KA KB KC ghost
+--   | pi _ => pi ghost
+--   | inter _ => inter ghost
+--   | checked => checked
+--   | forall_ => forall_
+--   | assume _ => assume ghost
+--   | implies => implies
 
 -- inductive Term.SigmaType {α}: World -> Term α -> Term α -> Term α -> World -> Type
 --   | sigma (w): SigmaType comp type type type w

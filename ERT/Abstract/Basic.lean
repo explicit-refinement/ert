@@ -418,11 +418,14 @@ theorem Term.fv_subst_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> Term α} (
 
 structure FTerm (α: Type u) [Syntax α] (n: ℕ) where
   val: Term α
-  fvLt: val.fv < n
+  fvLe: val.fv ≤ n
 
-def FTerm.fv {α} [Syntax α] {n} (t: FTerm α n): Fin n := ⟨t.val.fv, t.fvLt⟩
+def FTerm.fv {α} [Syntax α] {n} (t: FTerm α n): Fin (n + 1)
+  := ⟨t.val.fv, Nat.lt_succ_of_le t.fvLe⟩
 
---TODO: FTerm.wk
+-- def FTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m): FTerm α n -> FTerm α m
+--   | ⟨Term.var n, Hfv⟩ => ⟨Term.var (ρ ⟨n, Hfv⟩), (ρ ⟨n, Hfv⟩).2⟩
+--   | ⟨Term.tm a ts, Hn⟩ => sorry
 
 --TODO: FTerm.subst
 
