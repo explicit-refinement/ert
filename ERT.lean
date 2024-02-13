@@ -20,7 +20,6 @@ import ERT.Stlc.DeBruijn2.Basic
 import ERT.Stlc.DeBruijn2.Semantics
 
 import ERT.PER.Basic
-import ERT.PER.Monad
 
 /-!
 # Explicit Refinement Types

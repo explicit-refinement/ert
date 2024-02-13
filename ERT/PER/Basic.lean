@@ -269,11 +269,34 @@ theorem Relation.PERGen.iff_transGen_symmGen {α} {r: α -> α -> Prop} {a b: α
   : Relation.PERGen r a b ↔ Relation.TransGen (Relation.SymmGen r) a b
   := ⟨to_transGen_symmGen, of_transGen_symmGen⟩
 
-theorem Relation.PERGen_eq_transGen_symmGen {α} {r: α -> α -> Prop} {a b: α}
-  : Relation.PERGen r a b = Relation.TransGen (Relation.SymmGen r) a b
-  := propext PERGen.iff_transGen_symmGen
+theorem Relation.PERGen_eq_transGen_symmGen {α} {r: α -> α -> Prop}
+  : Relation.PERGen r = Relation.TransGen (Relation.SymmGen r)
+  := funext₂ (λ_ _ => propext PERGen.iff_transGen_symmGen)
 
-theorem Relation.PERGen_eq_transGen {α} {r: α -> α -> Prop} {a b: α}
+theorem Relation.PERGen_eq_transGen {α} {r: α -> α -> Prop}
   (Hr: Symmetric r)
-  : Relation.PERGen r a b = Relation.TransGen r a b
+  : Relation.PERGen r = Relation.TransGen r
   := by rw [PERGen_eq_transGen_symmGen, Relation.symmGen_eq_self Hr]
+
+theorem PER.transGen {α} {r: α -> α -> Prop} (Hr: Symmetric r): PER (Relation.TransGen r)
+  := Relation.PERGen_eq_transGen Hr ▸ PER.PERGen r
+
+def Function.Injective.PER {α β} {r: α -> α -> Prop} {f: α -> β}
+  (R: PER r) (Hf: Function.Injective f)
+  : PER (Relation.Map r f f) where
+  symm H := R.symmetric.map f H
+  trans H H' := Hf.transitive R.transitive H H'
+
+def PSetoid.map_inj {α β} {f: α -> β} (Hf: Function.Injective f) (A: PSetoid α)
+  : PSetoid β where
+  r := Relation.Map A.r f f
+  isper := Hf.PER A.isper
+
+def PER.pure_map {α} {r: α -> α -> Prop} (R: PER r) (T) [Monad T] [LawfulMonad T]
+  : PER (Relation.PureMap r T) where
+  symm H := R.symmetric.pure_map T H
+  trans H H' := R.transitive.pure_map T H H'
+
+def PSetoid.pure_map (T) [Monad T] [LawfulMonad T] {α} (A: PSetoid α): PSetoid (T α) where
+  r := Relation.PureMap A.r T
+  isper := PER.pure_map A.isper T
