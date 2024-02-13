@@ -2,6 +2,8 @@ import Mathlib.Data.Set.Basic
 import Mathlib.Logic.Relator
 import Mathlib.Order.CompleteLattice
 
+import ERT.Utils.Relation
+
 structure PER {α} (r: α -> α -> Prop): Prop where
   symm: ∀{x y: α}, r x y -> r y x
   trans: ∀{x y z: α}, r x y -> r y z -> r x z
@@ -9,7 +11,6 @@ structure PER {α} (r: α -> α -> Prop): Prop where
 def PER.eq {α}: PER (@Eq α) where
   symm := Eq.symm
   trans := Eq.trans
-
 def PER.univ {α}: @PER α ⊤ where
   symm _ := True.intro
   trans _ _ := True.intro
@@ -223,3 +224,29 @@ def Relation.onSet_inf {α} (S: Set α) (r s: α -> α -> Prop)
 def PER.onSet {α} {r: α -> α -> Prop} (R: PER r) (S: Set α): PER (Relation.onSet S r) where
   symm H := ⟨H.right, H.left, R.symm H.rel⟩
   trans H H' := ⟨H.left, H'.right, R.trans H.rel H'.rel⟩
+
+theorem PER.symmetric {α} {r: α -> α -> Prop} (R: PER r): Symmetric r := λ_ _ => R.symm
+theorem PER.transitive {α} {r: α -> α -> Prop} (R: PER r): Transitive r := λ_ _ _ => R.trans
+
+theorem PER.join_eq {α} {r: α -> α -> Prop} (R: PER r): Relation.Join r = r := by
+  funext a b; apply propext; constructor
+  . intro ⟨_, Hl, Hr⟩; exact R.trans Hl (R.symm Hr)
+  . intro H; exact ⟨b, H, R.refl_right H⟩
+
+inductive Relation.PERGen {α} (r: α -> α -> Prop): α -> α -> Prop
+  | rel {a b: α}: r a b -> PERGen r a b
+  | symm {a b: α}: PERGen r a b -> PERGen r b a
+  | trans {a b c: α}: PERGen r a b -> PERGen r b c -> PERGen r a c
+
+theorem PER.PERGen {α} (r: α -> α -> Prop): PER (Relation.PERGen r) where
+  symm := Relation.PERGen.symm
+  trans := Relation.PERGen.trans
+
+theorem PER.PERGen_self {α} {r: α -> α -> Prop} (R: PER r)
+  {a b: α} (H: Relation.PERGen r a b): r a b := by induction H with
+  | rel => assumption
+  | symm _ I => exact R.symm I
+  | trans _ _ I I' => exact R.trans I I'
+
+theorem PER.PERGen_eq_self {α} {r: α -> α -> Prop} (R: PER r):
+  Relation.PERGen r = r := funext₂ (λ_ _ => propext ⟨R.PERGen_self, Relation.PERGen.rel⟩)
