@@ -421,3 +421,57 @@ structure FTerm (α: Type u) [Syntax α] (n: ℕ) where
   fvLt: val.fv < n
 
 def FTerm.fv {α} [Syntax α] {n} (t: FTerm α n): Fin n := ⟨t.val.fv, t.fvLt⟩
+
+--TODO: FTerm.wk
+
+--TODO: FTerm.subst
+
+--TODO: FTerm.relabel
+
+--TODO: (etc)
+
+inductive FTerm2 (α: Type u) [Syntax α]: ℕ -> Type u
+  | var {n} (k: Fin n): FTerm2 α n
+  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm2 α (n + binding a i)): FTerm2 α n
+
+--TODO: FTerm2 ≃ FTerm
+
+--TODO: FTerm2.wk
+
+--TODO: FTerm2.subst
+
+--TODO: FTerm2.relabel
+
+--TODO: (etc)
+
+inductive Branch (α: Type u) [Syntax α]: Type u
+  | tm (a: α) (ts: Fin (arity a) -> Term α)
+
+--TODO: Term ≃ ℕ + Branch
+
+--TODO: Branch.wk
+
+--TODO: Branch.subst
+
+inductive Const (α: Type u) [Syntax α]: Type u
+  | tm (a: α) (ts: Fin (arity a) -> Const α)
+
+inductive FBranch (α: Type u) [Syntax α] (n: ℕ): Type u
+  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm α (n + binding a i))
+
+--TODO: FBranch ≃ Fin + FBranch
+
+--TODO: FBranch.wk
+
+--TODO: FBranch.subst
+
+inductive FBranch2 (α: Type u) [Syntax α] (n: ℕ): Type u
+  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm2 α (n + binding a i))
+
+--TODO: FBranch2 ≃ FBranch
+
+--TODO: FBranch2 ≃ Fin + FBranch
+
+--TODO: FBranch2.wk
+
+--TODO: FBranch2.subst
