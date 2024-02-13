@@ -250,3 +250,30 @@ theorem PER.PERGen_self {α} {r: α -> α -> Prop} (R: PER r)
 
 theorem PER.PERGen_eq_self {α} {r: α -> α -> Prop} (R: PER r):
   Relation.PERGen r = r := funext₂ (λ_ _ => propext ⟨R.PERGen_self, Relation.PERGen.rel⟩)
+
+theorem Relation.PERGen.of_transGen_symmGen {α} {r: α -> α -> Prop} {a b: α}
+  (H: Relation.TransGen (Relation.SymmGen r) a b): Relation.PERGen r a b
+  := by induction H with
+  | single H => exact H.elim Relation.PERGen.rel (Relation.PERGen.symm ∘ Relation.PERGen.rel)
+  | tail  _ H I => exact Relation.PERGen.trans I (
+      H.elim Relation.PERGen.rel (Relation.PERGen.symm ∘ Relation.PERGen.rel))
+
+theorem Relation.PERGen.to_transGen_symmGen {α} {r: α -> α -> Prop} {a b: α}
+  (H: Relation.PERGen r a b): Relation.TransGen (Relation.SymmGen r) a b
+  := by induction H with
+  | rel H => exact Relation.TransGen.single (Or.inl H)
+  | symm _ I => exact Relation.TransGen.symmetric (Relation.SymmGen.symmetric) I
+  | trans _ _ I I' => exact Relation.TransGen.trans I I'
+
+theorem Relation.PERGen.iff_transGen_symmGen {α} {r: α -> α -> Prop} {a b: α}
+  : Relation.PERGen r a b ↔ Relation.TransGen (Relation.SymmGen r) a b
+  := ⟨to_transGen_symmGen, of_transGen_symmGen⟩
+
+theorem Relation.PERGen_eq_transGen_symmGen {α} {r: α -> α -> Prop} {a b: α}
+  : Relation.PERGen r a b = Relation.TransGen (Relation.SymmGen r) a b
+  := propext PERGen.iff_transGen_symmGen
+
+theorem Relation.PERGen_eq_transGen {α} {r: α -> α -> Prop} {a b: α}
+  (Hr: Symmetric r)
+  : Relation.PERGen r a b = Relation.TransGen r a b
+  := by rw [PERGen_eq_transGen_symmGen, Relation.symmGen_eq_self Hr]
