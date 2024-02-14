@@ -286,15 +286,25 @@ def liftnFin' {n m} (k: Nat) (ρ: Fin n -> Fin m): Fin (k + n) -> Fin (k + m)
 def liftnFin {n m} (k: Nat) (ρ: Fin n -> Fin m): Fin (n + k) -> Fin (m + k)
   := Fin.casesAdd (λi => (ρ i).addNat k) (λi => i.addCast m)
 
+-- Note: this is the one without casts, so having a liftnFin_succ would be confusing...
+-- This ordering is meant to coincide with Function.iterate, though...
+def liftnFin_succ' {n m} (k: Nat)
+  : @liftnFin n m (k.succ) = liftFin ∘ @liftnFin n m k := by
+  funext ρ ⟨i, Hi⟩
+  cases i with
+  | zero => simp only [liftnFin, Fin.casesAdd, Nat.zero_eq, Nat.zero_lt_succ, ↓reduceDite]; rfl
+  | succ i =>
+    simp only [
+      liftnFin, Fin.casesAdd, Fin.castLT_mk, Fin.subNat_mk, Fin.addNat_mk,
+      Nat.succ_sub_succ_eq_sub, eq_rec_constant, Function.comp_apply, liftFin, Fin.cases_succ',
+      Nat.succ_lt_succ_iff
+    ]
+    split <;> rfl
+
 -- def liftnFin'_zero_cast {n m} (ρ: Fin n -> Fin m): liftnFin' 0 ρ = cast (by simp) ρ := by
 --   funext i; apply Fin.ext; simp [liftnFin', Fin.addCases, Fin.natAdd, Fin.cast]
 
--- def liftnFin_succ' {n m} (k: Nat)
---   : @liftnFin n m (k.succ) = liftFin ∘ @liftnFin n m k := by
---   funext ρ ⟨i, Hi⟩
---   cases i with
---   | zero => sorry
---   | succ i => sorry
+
 
 -- def liftnFin_succ {n m} (k: Nat): @liftnFin n m (k.succ) = cast
 --     (by simp only [Nat.add_succ, Nat.succ_add])
