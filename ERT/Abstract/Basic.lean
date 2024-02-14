@@ -416,34 +416,38 @@ theorem Term.fv_subst_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> Term α} (
     apply fv_tm_ith'
     simp_arith
 
-structure FTerm (α: Type u) [Syntax α] (n: ℕ) where
+structure NTerm (α: Type u) [Syntax α] (n: ℕ) where
   val: Term α
   fvLe: val.fv ≤ n
 
-def FTerm.fv {α} [Syntax α] {n} (t: FTerm α n): Fin (n + 1)
+def NTerm.fv {α} [Syntax α] {n} (t: NTerm α n): Fin (n + 1)
   := ⟨t.val.fv, Nat.lt_succ_of_le t.fvLe⟩
 
--- def FTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m): FTerm α n -> FTerm α m
+-- def NTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m): NTerm α n -> NTerm α m
 --   | ⟨Term.var n, Hfv⟩ => ⟨Term.var (ρ ⟨n, Hfv⟩), (ρ ⟨n, Hfv⟩).2⟩
 --   | ⟨Term.tm a ts, Hn⟩ => sorry
+
+--TODO: NTerm.subst
+
+--TODO: NTerm.relabel
+
+--TODO: (etc)
+
+inductive FTerm (α: Type u) [Syntax α]: ℕ -> Type u
+  | var {n} (k: Fin n): FTerm α n
+  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm α (n + binding a i)): FTerm α n
+
+-- def FTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m): FTerm α n -> FTerm α m
+--   | FTerm.var k => FTerm.var (ρ k)
+--   | FTerm.tm a ts => FTerm.tm a (λ i => (ts i).wk (liftnWk (binding a i) ρ))
+
+--TODO: FTerm ≃ NTerm
+
+--TODO: FTerm.wk
 
 --TODO: FTerm.subst
 
 --TODO: FTerm.relabel
-
---TODO: (etc)
-
-inductive FTerm2 (α: Type u) [Syntax α]: ℕ -> Type u
-  | var {n} (k: Fin n): FTerm2 α n
-  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm2 α (n + binding a i)): FTerm2 α n
-
---TODO: FTerm2 ≃ FTerm
-
---TODO: FTerm2.wk
-
---TODO: FTerm2.subst
-
---TODO: FTerm2.relabel
 
 --TODO: (etc)
 
@@ -460,7 +464,7 @@ inductive Const (α: Type u) [Syntax α]: Type u
   | tm (a: α) (ts: Fin (arity a) -> Const α)
 
 inductive FBranch (α: Type u) [Syntax α] (n: ℕ): Type u
-  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm α (n + binding a i))
+  | tm (a: α) (ts: (i: Fin (arity a)) -> NTerm α (n + binding a i))
 
 --TODO: FBranch ≃ Fin + FBranch
 
@@ -469,7 +473,7 @@ inductive FBranch (α: Type u) [Syntax α] (n: ℕ): Type u
 --TODO: FBranch.subst
 
 inductive FBranch2 (α: Type u) [Syntax α] (n: ℕ): Type u
-  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm2 α (n + binding a i))
+  | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm α (n + binding a i))
 
 --TODO: FBranch2 ≃ FBranch
 
