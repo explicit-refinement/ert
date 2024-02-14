@@ -244,6 +244,12 @@ def liftnWk_eqToN_add {n ρ τ} (m: Nat) (H: EqToN n ρ τ): EqToN (n + m) (lift
 Nicer/more efficient definitions for iterated finite stepping
 -/
 
+def extendFin {n m} (ρ: Fin n -> Fin m) (k: ℕ): ℕ
+  := if h: k < n then ρ ⟨k, h⟩ else 0
+
+theorem extendFin_bounded {n m} (ρ: Fin n -> Fin m) (i: ℕ) (Hi: i < n): extendFin ρ i < m
+  := by simp [extendFin, Hi]
+
 def liftnFin' {n m} (k: Nat) (ρ: Fin n -> Fin m): Fin (k + n) -> Fin (k + m)
   := Fin.addCases (Fin.castAdd m) (Fin.natAdd k ∘ ρ)
 
@@ -252,7 +258,7 @@ def liftnFin {n m} (k: Nat) (ρ: Fin n -> Fin m): Fin (n + k) -> Fin (m + k)
 
 -- Note: this is the one without casts, so having a liftnFin_succ would be confusing...
 -- This ordering is meant to coincide with Function.iterate, though...
-def liftnFin_succ' {n m} (k: Nat)
+theorem liftnFin_succ' {n m} (k: Nat)
   : @liftnFin n m (k.succ) = liftFin ∘ @liftnFin n m k := by
   funext ρ ⟨i, Hi⟩
   cases i with
@@ -265,10 +271,12 @@ def liftnFin_succ' {n m} (k: Nat)
     ]
     split <;> rfl
 
+theorem liftnFin_zero {n m}
+  : @liftnFin n m 0 = id
+  := rfl
+
 -- def liftnFin'_zero_cast {n m} (ρ: Fin n -> Fin m): liftnFin' 0 ρ = cast (by simp) ρ := by
 --   funext i; apply Fin.ext; simp [liftnFin', Fin.addCases, Fin.natAdd, Fin.cast]
-
-
 
 -- def liftnFin_succ {n m} (k: Nat): @liftnFin n m (k.succ) = cast
 --     (by simp only [Nat.add_succ, Nat.succ_add])

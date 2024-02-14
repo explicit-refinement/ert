@@ -344,19 +344,19 @@ def Term.relabel {F α β} [Syntax α] [Syntax β] [SyntaxHomClass F α β] (f: 
 
 def Term.fv {α} [Syntax α]: (t: Term α) -> ℕ
   | var n => n + 1
-  | tm a ts => Tuple.foldl Nat.max 0 ((λi => fv (ts i)  + binding a i))
+  | tm a ts => Tuple.foldl Nat.max 0 ((λi => fv (ts i) - binding a i))
 
 def Term.fv_tm {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α)
-  : fv (tm a ts) = Tuple.foldl Nat.max 0 ((fv ∘ ts) + binding a)
+  : fv (tm a ts) = Tuple.foldl Nat.max 0 ((fv ∘ ts) - binding a)
   := rfl
 
-def Term.fv_tm_ith {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α) (i: Fin (arity a))
-  : fv (ts i) + binding a i ≤ fv (tm a ts)
-  := Tuple.nat_max_le_ith 0 ((fv ∘ ts) + binding a) i
+def Term.fv_tm_sub_binding_le_ith {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α)
+  (i: Fin (arity a)): fv (ts i) - binding a i ≤ fv (tm a ts)
+  := Tuple.nat_max_le_ith 0 ((fv ∘ ts) - binding a) i
 
-def Term.fv_tm_ith' {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α) (i: Fin (arity a))
-  : fv (ts i) ≤ fv (tm a ts)
-  := le_trans (Nat.le_add_right _ _) (fv_tm_ith a ts i)
+def Term.fv_tm_le_ith_add_binding {α} [Syntax α] (a: α) (ts: Fin (arity a) -> Term α)
+  (i: Fin (arity a)): fv (ts i) ≤ fv (tm a ts) + binding a i
+  := Nat.le_add_of_sub_le (Term.fv_tm_sub_binding_le_ith a ts i)
 
 theorem Term.fv_wk_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> ℕ} (H: EqToN t.fv ρ τ): t.wk ρ = t.wk τ
   := match t with
@@ -366,10 +366,10 @@ theorem Term.fv_wk_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> ℕ} (H: EqTo
     apply congrArg
     funext ⟨i, Hi⟩
     rw [fv_wk_eq (ts ⟨i, Hi⟩)]
-    apply EqToN.le_sub _ (liftnWk_eqToN_add _ H)
-    apply le_trans
-    apply fv_tm_ith'
-    simp_arith
+    apply EqToN.le_sub
+    apply fv_tm_le_ith_add_binding
+    apply liftnWk_eqToN_add
+    apply H
 
 theorem Term.wk_closed_eq {α} [Syntax α] (t: Term α) (H: t.fv = 0) (ρ τ: ℕ -> ℕ)
   : t.wk ρ = t.wk τ
@@ -411,10 +411,34 @@ theorem Term.fv_subst_eq {α} [Syntax α] (t: Term α) {ρ τ: ℕ -> Term α} (
     apply congrArg
     funext ⟨i, Hi⟩
     rw [fv_subst_eq (ts ⟨i, Hi⟩)]
-    apply EqToN.le_sub _ (Subst.liftn_eqToN_add H _)
-    apply le_trans
-    apply fv_tm_ith'
-    simp_arith
+    apply EqToN.le_sub
+    apply fv_tm_le_ith_add_binding
+    apply Subst.liftn_eqToN_add
+    apply H
+
+theorem Term.fv_wk_bounded {α} [Syntax α] (t: Term α) (ρ: ℕ -> ℕ) (b: ℕ) (H: ∀x < t.fv, ρ x < b)
+  : (t.wk ρ).fv ≤ b
+  := match t with
+  | var n => H n (Nat.lt.base n)
+  | tm a ts =>
+    by
+    rw [wk, fv]
+    apply Tuple.nat_max_le_of_base_le_of_ith_le
+    apply Nat.zero_le
+    intro i
+    apply Nat.sub_le_of_le_add
+    apply Term.fv_wk_bounded (ts i)
+    intro x Hx
+    simp only [liftnWk]
+    split
+    . apply Nat.lt_add_left; assumption
+    . apply Nat.add_lt_add_right
+      apply H
+      apply Nat.lt_of_lt_of_le _ (fv_tm_sub_binding_le_ith _ _ i)
+      apply Nat.lt_of_succ_le
+      rw [<-Nat.succ_sub (Nat.le_of_not_lt (by assumption))]
+      apply Nat.sub_le_sub_right
+      exact Hx
 
 structure NTerm (α: Type u) [Syntax α] (n: ℕ) where
   val: Term α
@@ -423,9 +447,9 @@ structure NTerm (α: Type u) [Syntax α] (n: ℕ) where
 def NTerm.fv {α} [Syntax α] {n} (t: NTerm α n): Fin (n + 1)
   := ⟨t.val.fv, Nat.lt_succ_of_le t.fvLe⟩
 
--- def NTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m): NTerm α n -> NTerm α m
---   | ⟨Term.var n, Hfv⟩ => ⟨Term.var (ρ ⟨n, Hfv⟩), (ρ ⟨n, Hfv⟩).2⟩
---   | ⟨Term.tm a ts, Hn⟩ => sorry
+def NTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m) (t: NTerm α n): NTerm α m
+  := ⟨t.val.wk (extendFin ρ), t.val.fv_wk_bounded _ _
+    (λi Hi => extendFin_bounded ρ i (Nat.lt_of_lt_of_le Hi t.fvLe))⟩
 
 --TODO: NTerm.subst
 
@@ -437,9 +461,9 @@ inductive FTerm (α: Type u) [Syntax α]: ℕ -> Type u
   | var {n} (k: Fin n): FTerm α n
   | tm (a: α) (ts: (i: Fin (arity a)) -> FTerm α (n + binding a i)): FTerm α n
 
--- def FTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m): FTerm α n -> FTerm α m
---   | FTerm.var k => FTerm.var (ρ k)
---   | FTerm.tm a ts => FTerm.tm a (λ i => (ts i).wk (liftnWk (binding a i) ρ))
+def FTerm.wk {α} [Syntax α] {n m} (ρ: Fin n -> Fin m): FTerm α n -> FTerm α m
+  | FTerm.var k => FTerm.var (ρ k)
+  | FTerm.tm a ts => FTerm.tm a (λ i => (ts i).wk (liftnFin (binding a i) ρ))
 
 --TODO: FTerm ≃ NTerm
 

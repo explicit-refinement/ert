@@ -103,6 +103,7 @@ theorem Tuple.nat_max_le_base (a: ℕ) (t: Fin n -> ℕ): a ≤ foldl Nat.max a 
   | succ n I =>
     simp [foldl_tail]
     exact le_trans (le_max_left _ _) (I _ _)
+
 theorem Tuple.nat_max_le_ith (a: ℕ) (t: Fin n -> ℕ) (i: Fin n)
   : t i ≤ foldl Nat.max a t := by
   induction n generalizing a with
@@ -112,6 +113,18 @@ theorem Tuple.nat_max_le_ith (a: ℕ) (t: Fin n -> ℕ) (i: Fin n)
     match i with
     | ⟨0, Hi⟩ => exact le_trans (Nat.le_max_right _ _) (nat_max_le_base _ _)
     | ⟨i + 1, Hi⟩ => exact (I _ (Fin.tail t) ⟨i, Nat.lt_of_succ_lt_succ Hi⟩)
+
+theorem Tuple.nat_max_le_base_and_ith (a: ℕ) (t: Fin n -> ℕ)
+  : a ≤ foldl Nat.max a t ∧ ∀i, t i ≤ foldl Nat.max a t :=
+  ⟨nat_max_le_base _ _, nat_max_le_ith _ _⟩
+
+theorem Tuple.nat_max_le_of_base_le_of_ith_le (a: ℕ) (t: Fin n -> ℕ) (b: ℕ)
+  (Hab: a ≤ b) (Hith: ∀i, t i ≤ b): foldl Nat.max a t ≤ b := by
+  induction n generalizing a with
+  | zero => exact Hab
+  | succ n I =>
+    rw [foldl_tail]
+    exact I _ _ (Nat.max_le_of_le_of_le Hab (Hith 0)) (λi => Hith i.succ)
 
 def Fin.addCast {m: Nat} (i: Fin m) (n: Nat): Fin (n + m)
   := i.castLE (by simp)
