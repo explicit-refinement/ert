@@ -5,6 +5,8 @@ import Mathlib.Data.Nat.Defs
 import Mathlib.Data.Fin.Fin2
 import Mathlib.Data.Fin.Basic
 
+import ERT.Utils.Tuple
+
 /-!
 # Weakenings
 
@@ -241,44 +243,6 @@ def liftnWk_eqToN_add {n ρ τ} (m: Nat) (H: EqToN n ρ τ): EqToN (n + m) (lift
 /-
 Nicer/more efficient definitions for iterated finite stepping
 -/
-
-def Fin.addCast {m: Nat} (i: Fin m) (n: Nat): Fin (n + m)
-  := i.castLE (by simp)
-
-def Fin.casesAdd {m n: Nat} {motive: Fin (m + n) -> Sort u}
-  (left: ∀ i: Fin m, motive (addNat i n))
-  (right: ∀ i: Fin n, motive (addCast i m))
-  (i: Fin (m + n)): motive i
-  := if hi : (i : Nat) < n then right (i.castLT hi)
-  else Fin.addNat_subNat (Nat.le_of_not_lt hi) ▸ left (subNat n i (Nat.le_of_not_lt hi))
-
-def Fin.sumLoHi {m n: Nat}: Fin (m + n) -> Fin m ⊕ Fin n
-  := Fin.casesAdd Sum.inl Sum.inr
-
-def Fin.sumHiLo {m n: Nat}: Fin (m + n) -> Fin m ⊕ Fin n
-  := Fin.addCases Sum.inl Sum.inr
-
-def Fin.sumLoHi_swap {m n: Nat} (i: Fin (m + n))
-  : i.sumLoHi.swap = (i.cast (Nat.add_comm m n)).sumHiLo := by
-    simp only [
-      sumLoHi, casesAdd, eq_rec_constant, sumHiLo, addCases,
-      coe_cast, cast_trans, cast_eq_self]
-    split <;> rfl
-
-def Fin.sumHiLo_swap {m n: Nat} (i: Fin (m + n))
-  : i.sumHiLo.swap = (i.cast (Nat.add_comm m n)).sumLoHi := by
-    simp only [
-      sumLoHi, casesAdd, eq_rec_constant, sumHiLo, addCases,
-      coe_cast, cast_trans, cast_eq_self]
-    split <;> rfl
-
-theorem Fin.addNat_cast_natAdd {n: Nat} (i: Fin n) (k: Nat)
-  : i.addNat k = (i.natAdd k).cast (by rw [Nat.add_comm])
-  := by simp
-
-theorem Fin.natAdd_cast_addNat {n: Nat} (i: Fin n) (k: Nat)
-  : i.natAdd k = (i.addNat k).cast (by rw [Nat.add_comm])
-  := by simp
 
 def liftnFin' {n m} (k: Nat) (ρ: Fin n -> Fin m): Fin (k + n) -> Fin (k + m)
   := Fin.addCases (Fin.castAdd m) (Fin.natAdd k ∘ ρ)

@@ -112,3 +112,60 @@ theorem Tuple.nat_max_le_ith (a: ℕ) (t: Fin n -> ℕ) (i: Fin n)
     match i with
     | ⟨0, Hi⟩ => exact le_trans (Nat.le_max_right _ _) (nat_max_le_base _ _)
     | ⟨i + 1, Hi⟩ => exact (I _ (Fin.tail t) ⟨i, Nat.lt_of_succ_lt_succ Hi⟩)
+
+def Fin.addCast {m: Nat} (i: Fin m) (n: Nat): Fin (n + m)
+  := i.castLE (by simp)
+
+def Fin.casesAdd {m n: Nat} {motive: Fin (m + n) -> Sort u}
+  (left: ∀ i: Fin m, motive (addNat i n))
+  (right: ∀ i: Fin n, motive (addCast i m))
+  (i: Fin (m + n)): motive i
+  := if hi : (i : Nat) < n then right (i.castLT hi)
+  else Fin.addNat_subNat (Nat.le_of_not_lt hi) ▸ left (subNat n i (Nat.le_of_not_lt hi))
+
+def Fin.prepend {m n: Nat} (a: Fin m -> α) (b: Fin n -> α): Fin (m + n) -> α
+  := Fin.casesAdd a b
+
+def Fin.sumHiLo {m n: Nat}: Fin (m + n) -> Fin m ⊕ Fin n
+  := Fin.addCases Sum.inl Sum.inr
+
+theorem Fin.append_eq_sumHiLo_elim {m n: Nat} (a: Fin m -> α) (b: Fin n -> α) (i: Fin (m + n))
+  : (Fin.append a b) i = i.sumHiLo.elim a b
+  := by simp only [append, addCases, eq_rec_constant, sumHiLo]; split <;> rfl
+
+def Fin.sumLoHi {m n: Nat}: Fin (m + n) -> Fin m ⊕ Fin n
+  := Fin.casesAdd Sum.inl Sum.inr
+
+theorem Fin.prepend_eq_sumLoHi_elim {m n: Nat} (a: Fin m -> α) (b: Fin n -> α) (i: Fin (m + n))
+  : (Fin.prepend a b) i = i.sumLoHi.elim a b
+  := by simp only [prepend, casesAdd, eq_rec_constant, sumLoHi]; split <;> rfl
+
+theorem Fin.sumLoHi_swap {m n: Nat} (i: Fin (m + n))
+  : i.sumLoHi.swap = (i.cast (Nat.add_comm m n)).sumHiLo := by
+    simp only [
+      sumLoHi, casesAdd, eq_rec_constant, sumHiLo, addCases,
+      coe_cast, cast_trans, cast_eq_self]
+    split <;> rfl
+
+theorem Fin.swap_comp_sumLoHi (m n: Nat)
+  : Sum.swap ∘ @sumLoHi m n = sumHiLo ∘ cast (Nat.add_comm m n)
+  := funext sumLoHi_swap
+
+theorem Fin.sumHiLo_swap {m n: Nat} (i: Fin (m + n))
+  : i.sumHiLo.swap = (i.cast (Nat.add_comm m n)).sumLoHi := by
+    simp only [
+      sumLoHi, casesAdd, eq_rec_constant, sumHiLo, addCases,
+      coe_cast, cast_trans, cast_eq_self]
+    split <;> rfl
+
+theorem Fin.swap_comp_sumHiLo (m n: Nat)
+  : Sum.swap ∘ @sumHiLo m n = sumLoHi ∘ cast (Nat.add_comm m n)
+  := funext sumHiLo_swap
+
+theorem Fin.addNat_cast_natAdd {n: Nat} (i: Fin n) (k: Nat)
+  : i.addNat k = (i.natAdd k).cast (by rw [Nat.add_comm])
+  := by simp
+
+theorem Fin.natAdd_cast_addNat {n: Nat} (i: Fin n) (k: Nat)
+  : i.natAdd k = (i.addNat k).cast (by rw [Nat.add_comm])
+  := by simp
