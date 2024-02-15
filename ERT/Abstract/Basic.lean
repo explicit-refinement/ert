@@ -17,9 +17,14 @@ instance treeSyntax: Syntax ℕ where
   arity := id
   binding := λ_ => 0
 
-instance terminalSyntax: Syntax (List ℕ) where
-  arity := List.length
-  binding ℓ i := ℓ.get i
+--TODO: name this something...
+instance terminalSyntax: Syntax ((n: ℕ) × (Fin n -> ℕ)) where
+  arity ℓ := ℓ.1
+  binding ℓ := ℓ.2
+
+instance sumSyntax {α β} [Syntax α] [Syntax β]: Syntax (α ⊕ β) where
+  arity | Sum.inl a => Syntax.arity a | Sum.inr b => Syntax.arity b
+  binding | Sum.inl a => Syntax.binding a | Sum.inr b => Syntax.binding b
 
 def Consts (α: Type u) := α
 
@@ -303,6 +308,14 @@ theorem SyntaxHom.ext {α β} [Syntax α] [Syntax β]
   apply funext
   exact h
 
+theorem SyntaxHom.ext' {α β} [Syntax α] [Syntax β]
+  {f g: SyntaxHom α β}
+  (h: f.toFun = g.toFun)
+  : f = g := by
+    cases f; cases g
+    simp only [SyntaxHom.mk.injEq]
+    exact h
+
 theorem SyntaxHom.comp_id {α β} [Syntax α] [Syntax β] (f: SyntaxHom α β)
   : f.comp (SyntaxHom.id α) = f := SyntaxHom.ext (by simp [id, comp])
 
@@ -313,12 +326,6 @@ theorem SyntaxHom.comp_assoc {α β γ δ} [Syntax α] [Syntax β] [Syntax γ] [
   (f: SyntaxHom α β) (g: SyntaxHom β γ) (h: SyntaxHom γ δ)
   : (h.comp g).comp f = h.comp (g.comp f) := SyntaxHom.ext (by simp [comp])
 
--- TODO: category of syntax homs
--- TODO: initial object
--- TODO: is List ℕ the terminal object?
--- TODO: coproducts?
--- TODO: products? tensor products? other limits?
-
 class SyntaxHomClass (F) (α β: outParam (_)) [Syntax α] [Syntax β]
   extends DFunLike F α (λ_ => β) where
   map_arity: ∀f: F, ∀a: α, arity (f a) = arity a
@@ -327,12 +334,70 @@ class SyntaxHomClass (F) (α β: outParam (_)) [Syntax α] [Syntax β]
 
 open SyntaxHomClass
 
-instance SyntaxHom.SyntaxHomClass {α β} [Syntax α] [Syntax β]: SyntaxHomClass (SyntaxHom α β) α β
+instance SyntaxHom.instSyntaxHomClass {α β} [Syntax α] [Syntax β]: SyntaxHomClass (SyntaxHom α β) α β
   where
   coe := SyntaxHom.toFun
   coe_injective' f g h := by cases f; cases g; congr
   map_arity := SyntaxHom.map_arity'
   map_bindings := SyntaxHom.map_bindings'
+
+--TODO: check with mathlib conventions...
+def SyntaxHom.inl {α β} [Syntax α] [Syntax β]: SyntaxHom α (α ⊕ β) where
+  toFun := Sum.inl
+  map_arity' := by simp [arity]
+  map_bindings' := by simp [binding]
+
+def SyntaxHom.inr {α β} [Syntax α] [Syntax β]: SyntaxHom β (α ⊕ β) where
+  toFun := Sum.inr
+  map_arity' := by simp [arity]
+  map_bindings' := by simp [binding]
+
+def SyntaxHom.elim {α β γ F G} [Syntax α] [Syntax β] [Syntax γ]
+  [SyntaxHomClass F α γ] [SyntaxHomClass G β γ]
+  (f: F) (g: G): SyntaxHom (α ⊕ β) γ
+  where
+  toFun := Sum.elim f g
+  map_arity' a := by cases a <;> simp [SyntaxHomClass.map_arity, arity]
+  map_bindings' a := by cases a <;> simp [SyntaxHomClass.map_bindings, binding]
+
+def SyntaxHom.initial {α} [Syntax α]: SyntaxHom Empty α where
+  toFun := Empty.elim
+  map_arity' a := a.elim
+  map_bindings' a := a.elim
+
+def SyntaxHom.terminal {α} [Syntax α]: SyntaxHom α ((n: ℕ) × (Fin n -> ℕ))
+  where
+  toFun a := ⟨arity a, binding a⟩
+  map_arity' := by simp [arity]
+  map_bindings' := by simp [binding]
+
+theorem SyntaxHom.terminal_fun_unique {α F}
+  [Syntax α] [SyntaxHomClass F α ((n: ℕ) × (Fin n -> ℕ))]
+  (f: F): (DFunLike.coe f) = SyntaxHom.terminal.toFun := by
+    funext a
+    have Hfa: arity (f a) = arity a := map_arity f a
+    have Hta: arity (terminal.toFun a) = arity a := terminal.map_arity' a
+    have Har := Hfa.trans Hta
+    apply Sigma.ext
+    . exact Har
+    . apply (Fin.heq_fun_iff Har).mpr
+      intro ⟨i, Hi⟩
+      apply (map_bindings f a ⟨i, Hi⟩).trans
+      apply Eq.symm
+      apply (terminal.map_bindings' a ⟨i, Har ▸ Hi⟩).trans
+      simp only
+      congr
+      rw [Eq.rec_eq_cast]
+      rw [<-Fin.cast_eq_cast Har]
+      rw [Fin.coe_cast]
+
+instance {α} [Syntax α]: Subsingleton (SyntaxHom α ((n: ℕ) × (Fin n -> ℕ))) where
+  allEq f g := SyntaxHom.ext' $
+    (SyntaxHom.terminal_fun_unique f).trans (SyntaxHom.terminal_fun_unique g).symm
+
+-- TODO: actual category of syntax homs
+
+-- TODO: products? tensor products? other limits?
 
 def Term.relabel {F α β} [Syntax α] [Syntax β] [SyntaxHomClass F α β] (f: F)
   : Term α -> Term β
